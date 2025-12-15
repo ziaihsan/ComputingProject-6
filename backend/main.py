@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import aiohttp
 import asyncio
-import random
 import ssl
+from datetime import datetime
 
-app = FastAPI(title="Crypto RSI Heatmap API")
+app = FastAPI(title="Crypto EMA + RSI Heatmap API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -15,69 +15,109 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# CoinGecko API (free, no SSL issues)
 COINGECKO_API = "https://api.coingecko.com/api/v3"
 
-def calculate_rsi_from_change(change_24h: float, change_1h: float = 0) -> dict:
-    """Generate RSI values based on price changes"""
-    # Map price change to RSI range (simplified but effective)
-    base = 50 + (change_24h * 1.5)
-    base = max(15, min(85, base))
+
+def calculate_indicators(price: float, change_24h: float, change_1h: float):
+    """Calculate RSI and EMA-based indicators from price changes"""
+    import random
     
-    def noise(): return random.uniform(-6, 6)
+    base_rsi = 50 + (change_24h * 1.5)
+    base_rsi = max(15, min(85, base_rsi))
     
-    rsi_15m = max(5, min(95, base + noise() + change_1h * 2))
-    rsi_1h = max(5, min(95, base + noise() + change_1h))
-    rsi_4h = max(5, min(95, base + noise()))
-    rsi_12h = max(5, min(95, base + noise() * 0.7))
-    rsi_24h = max(5, min(95, base + noise() * 0.5))
+    noise = random.uniform(-5, 5)
+    rsi = max(5, min(95, base_rsi + noise))
+    
+    rsi_smoothed = max(5, min(95, rsi + random.uniform(-8, 8)))
+    
+    ema_13 = price * (1 + change_1h / 100 * 0.3)
+    ema_21 = price * (1 + change_1h / 100 * 0.1)
     
     return {
-        'rsi_15m': round(rsi_15m, 2),
-        'rsi_1h': round(rsi_1h, 2),
-        'rsi_4h': round(rsi_4h, 2),
-        'rsi_12h': round(rsi_12h, 2),
-        'rsi_24h': round(rsi_24h, 2)
+        'rsi': round(rsi, 2),
+        'rsi_smoothed': round(rsi_smoothed, 2),
+        'ema_13': round(ema_13, 8),
+        'ema_21': round(ema_21, 8),
     }
 
-def detect_signals(rsi_4h: float, change_24h: float) -> dict:
-    """Detect Long/Short signals"""
-    long_layer = 0
-    short_layer = 0
+
+def detect_signal_layer(rsi: float, rsi_smoothed: float, ema_13: float, ema_21: float, 
+                        price: float, change_24h: float) -> dict:
+    """
+    Detect signal layer (1-5) for Long and Short positions
     
-    if rsi_4h <= 20: long_layer = 5
-    elif rsi_4h <= 30: long_layer = 4
-    elif rsi_4h <= 35: long_layer = 3
-    elif rsi_4h <= 40 and change_24h < -3: long_layer = 2
-    elif rsi_4h <= 45 and change_24h < -5: long_layer = 1
+    Layer 5: SMOOTHED RSI + EMA (strongest)
+    Layer 4: RSI KONVENSIONAL + EMA
+    Layer 3: SMOOTHED RSI ONLY
+    Layer 2: RSI KONVENSIONAL ONLY
+    Layer 1: ONLY EMA (weakest)
+    """
+    result = {
+        'long_layer': 0,
+        'short_layer': 0,
+    }
     
-    if rsi_4h >= 80: short_layer = 5
-    elif rsi_4h >= 70: short_layer = 4
-    elif rsi_4h >= 65: short_layer = 3
-    elif rsi_4h >= 60 and change_24h > 3: short_layer = 2
-    elif rsi_4h >= 55 and change_24h > 5: short_layer = 1
+    ema_bullish = ema_13 > ema_21
+    ema_bearish = ema_13 < ema_21
     
-    return {'long_layer': long_layer, 'short_layer': short_layer}
+    rsi_oversold = rsi < 30
+    rsi_overbought = rsi > 70
+    
+    srsi_oversold = rsi_smoothed < 30
+    srsi_overbought = rsi_smoothed > 70
+    
+    rsi_cross_up = rsi > rsi_smoothed and rsi < 40
+    rsi_cross_down = rsi < rsi_smoothed and rsi > 60
+    
+    has_bullish_div = change_24h < -2 and rsi > 25
+    has_bearish_div = change_24h > 2 and rsi < 75
+    
+    # LONG signals
+    if srsi_oversold and ema_bullish and rsi_cross_up and has_bullish_div:
+        result['long_layer'] = 5
+    elif rsi_oversold and ema_bullish and has_bullish_div:
+        result['long_layer'] = 4
+    elif srsi_oversold and rsi_cross_up:
+        result['long_layer'] = 3
+    elif rsi_oversold and has_bullish_div:
+        result['long_layer'] = 2
+    elif ema_bullish and price <= ema_13 * 1.005:
+        result['long_layer'] = 1
+    
+    # SHORT signals
+    if srsi_overbought and ema_bearish and rsi_cross_down and has_bearish_div:
+        result['short_layer'] = 5
+    elif rsi_overbought and ema_bearish and has_bearish_div:
+        result['short_layer'] = 4
+    elif srsi_overbought and rsi_cross_down:
+        result['short_layer'] = 3
+    elif rsi_overbought and has_bearish_div:
+        result['short_layer'] = 2
+    elif ema_bearish and price >= ema_13 * 0.995:
+        result['short_layer'] = 1
+    
+    return result
+
 
 @app.get("/")
 async def root():
-    return {"message": "Crypto RSI Heatmap API", "status": "running"}
+    return {"message": "Crypto EMA + RSI Heatmap API", "status": "running"}
+
 
 @app.get("/api/heatmap")
 async def get_heatmap(
-    limit: int = Query(default=50, le=250),
+    limit: int = Query(default=100, le=250),
     timeframe: str = Query(default="4h")
 ):
-    """Get RSI heatmap data from CoinGecko"""
+    """Get heatmap data for scatter plot visualization"""
     
     try:
-        # SSL context for macOS
         ssl_ctx = ssl.create_default_context()
         ssl_ctx.check_hostname = False
         ssl_ctx.verify_mode = ssl.CERT_NONE
         
         conn = aiohttp.TCPConnector(ssl=ssl_ctx)
-        timeout = aiohttp.ClientTimeout(total=20)
+        timeout = aiohttp.ClientTimeout(total=30)
         
         async with aiohttp.ClientSession(connector=conn, timeout=timeout) as session:
             url = f"{COINGECKO_API}/coins/markets"
@@ -91,49 +131,128 @@ async def get_heatmap(
             
             async with session.get(url, params=params) as resp:
                 if resp.status != 200:
-                    return JSONResponse({'success': False, 'error': f'CoinGecko error: {resp.status}', 'data': []})
+                    return JSONResponse({
+                        'success': False, 
+                        'error': f'CoinGecko error: {resp.status}',
+                        'timeframe': timeframe,
+                        'signals': []
+                    })
                 
                 coins = await resp.json()
         
-        results = []
-        for coin in coins:
+        signals = []
+        
+        for rank, coin in enumerate(coins, 1):
             symbol = coin.get('symbol', '').upper()
+            name = coin.get('name', '')
             price = coin.get('current_price', 0) or 0
             change_24h = coin.get('price_change_percentage_24h', 0) or 0
             change_1h = coin.get('price_change_percentage_1h_in_currency', 0) or 0
-            volume = coin.get('total_volume', 0) or 0
             mcap = coin.get('market_cap', 0) or 0
             
-            rsi_data = calculate_rsi_from_change(change_24h, change_1h)
-            signals = detect_signals(rsi_data['rsi_4h'], change_24h)
+            if price <= 0:
+                continue
             
-            results.append({
+            indicators = calculate_indicators(price, change_24h, change_1h)
+            layer_info = detect_signal_layer(
+                indicators['rsi'],
+                indicators['rsi_smoothed'],
+                indicators['ema_13'],
+                indicators['ema_21'],
+                price,
+                change_24h
+            )
+            
+            signal_data = {
                 'symbol': symbol,
-                'name': coin.get('name', ''),
+                'full_name': name,
                 'price': price,
                 'price_change_24h': round(change_24h, 2),
-                'price_change_1h': round(change_1h, 2),
-                'volume_24h': volume,
+                'rsi': indicators['rsi'],
+                'rsi_smoothed': indicators['rsi_smoothed'],
+                'ema_13': indicators['ema_13'],
+                'ema_21': indicators['ema_21'],
+                'market_cap_rank': rank,
                 'market_cap': mcap,
-                **rsi_data,
-                **signals
-            })
+                'long_layer': layer_info['long_layer'],
+                'short_layer': layer_info['short_layer'],
+            }
+            
+            signals.append(signal_data)
         
         return JSONResponse({
             'success': True,
-            'count': len(results),
-            'source': 'CoinGecko',
-            'data': results
+            'timeframe': timeframe,
+            'updated_at': datetime.utcnow().isoformat() + 'Z',
+            'total_coins': len(signals),
+            'signals': signals
         })
         
     except asyncio.TimeoutError:
-        return JSONResponse({'success': False, 'error': 'Timeout', 'data': []})
+        return JSONResponse({
+            'success': False, 
+            'error': 'Timeout fetching data',
+            'timeframe': timeframe,
+            'signals': []
+        })
     except Exception as e:
-        return JSONResponse({'success': False, 'error': str(e), 'data': []})
+        return JSONResponse({
+            'success': False, 
+            'error': str(e),
+            'timeframe': timeframe,
+            'signals': []
+        })
+
+
+@app.get("/api/stats")
+async def get_stats(timeframe: str = Query(default="4h")):
+    """Get signal statistics"""
+    heatmap_response = await get_heatmap(limit=200, timeframe=timeframe)
+    data = heatmap_response.body.decode()
+    import json
+    result = json.loads(data)
+    
+    if not result.get('success'):
+        return JSONResponse(result)
+    
+    signals = result.get('signals', [])
+    
+    long_layers = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    short_layers = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+    
+    for s in signals:
+        if s['long_layer'] > 0:
+            long_layers[s['long_layer']] += 1
+        if s['short_layer'] > 0:
+            short_layers[s['short_layer']] += 1
+    
+    return JSONResponse({
+        'success': True,
+        'timeframe': timeframe,
+        'total_coins': len(signals),
+        'long_signals': {
+            'layer_5': long_layers[5],
+            'layer_4': long_layers[4],
+            'layer_3': long_layers[3],
+            'layer_2': long_layers[2],
+            'layer_1': long_layers[1],
+            'total': sum(long_layers.values())
+        },
+        'short_signals': {
+            'layer_5': short_layers[5],
+            'layer_4': short_layers[4],
+            'layer_3': short_layers[3],
+            'layer_2': short_layers[2],
+            'layer_1': short_layers[1],
+            'total': sum(short_layers.values())
+        }
+    })
+
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Market EMA + RSI Heatmap</title>
+    <title>Crypto Market EMA + RSI Heatmap [DEMO]</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -46,6 +46,16 @@
             font-size: 20px;
             font-weight: 700;
             color: var(--text);
+        }
+        
+        .demo-badge {
+            background: #f59e0b;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-left: 10px;
         }
         
         .controls {
@@ -264,26 +274,6 @@
             font-weight: 700;
         }
         
-        .loading {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 400px;
-            color: var(--muted);
-        }
-        
-        .spinner {
-            width: 32px;
-            height: 32px;
-            border: 3px solid var(--border);
-            border-top-color: var(--text);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-right: 12px;
-        }
-        
-        @keyframes spin { to { transform: rotate(360deg); } }
-        
         .no-signal {
             text-align: center;
             padding: 40px;
@@ -315,7 +305,7 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1>Crypto Market EMA + RSI HEATMAP</h1>
+            <h1>Crypto Market EMA + RSI HEATMAP <span class="demo-badge">DEMO</span></h1>
             <div class="controls">
                 <div class="toggle-group">
                     <button class="toggle-btn long active" data-direction="long">Long</button>
@@ -338,12 +328,7 @@
         </header>
         
         <div class="heatmap-container">
-            <div class="scatter-chart" id="scatterChart">
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <span>Loading data...</span>
-                </div>
-            </div>
+            <div class="scatter-chart" id="scatterChart"></div>
             <div class="stats-bar">
                 <div class="stat-item">
                     <span class="stat-label">Total Coins:</span>
@@ -354,7 +339,7 @@
                     <span class="stat-value" id="statSignals">-</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label" id="lastUpdate">-</span>
+                    <span class="stat-label" id="lastUpdate" style="color: #f59e0b; font-weight: 600;">DEMO MODE</span>
                 </div>
             </div>
         </div>
@@ -363,12 +348,8 @@
     <div class="tooltip" id="tooltip"></div>
 
     <script>
-        const API_BASE = 'http://localhost:8000';
-        
         let currentData = [];
         let currentDirection = 'long';
-        let currentAbortController = null;
-        let fetchTimeout = null;
         
         const LAYER_LABELS = [
             'ONLY EMA',
@@ -396,7 +377,7 @@
         
         document.addEventListener('DOMContentLoaded', () => {
             initToggle();
-            fetchData();
+            loadDemoData();
         });
         
         function initToggle() {
@@ -409,103 +390,79 @@
                 });
             });
             
-            document.getElementById('refreshBtn').addEventListener('click', fetchData);
-            document.getElementById('timeframeSelect').addEventListener('change', debouncedFetch);
-            document.getElementById('limitSelect').addEventListener('change', debouncedFetch);
+            document.getElementById('refreshBtn').addEventListener('click', loadDemoData);
+            document.getElementById('timeframeSelect').addEventListener('change', loadDemoData);
+            document.getElementById('limitSelect').addEventListener('change', loadDemoData);
         }
         
-        function debouncedFetch() {
-            if (fetchTimeout) clearTimeout(fetchTimeout);
-            fetchTimeout = setTimeout(fetchData, 500);
-        }
-        
-        async function fetchData() {
-            if (currentAbortController) {
-                currentAbortController.abort();
-            }
-            currentAbortController = new AbortController();
-            
-            const loading = document.getElementById('loading');
-            const chart = document.getElementById('scatterChart');
-            
-            loading.style.display = 'flex';
-            
-            const limit = document.getElementById('limitSelect').value;
-            const timeframe = document.getElementById('timeframeSelect').value;
-            
-            console.log(`[fetchData] Requesting: limit=${limit}, timeframe=${timeframe}`);
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/heatmap?limit=${limit}&timeframe=${timeframe}`, {
-                    signal: currentAbortController.signal
-                });
-                
-                console.log(`[fetchData] Response status: ${response.status}`);
-                
-                const result = await response.json();
-                
-                console.log(`[fetchData] Result:`, {
-                    success: result.success,
-                    signalsCount: result.signals?.length,
-                    error: result.error,
-                    totalCoins: result.total_coins
-                });
-                
-                if (result.success && result.signals) {
-                    currentData = result.signals;
-                    document.getElementById('statTotal').textContent = result.total_coins || currentData.length;
-                    document.getElementById('lastUpdate').textContent = `Updated: ${new Date().toLocaleTimeString()}`;
-                    document.getElementById('lastUpdate').style.color = '';
-                    console.log(`[fetchData] Success! Loaded ${currentData.length} coins`);
-                } else if (result.error && result.error.includes('429')) {
-                    console.warn(`[fetchData] Rate limited by CoinGecko, keeping old data`);
-                    document.getElementById('lastUpdate').textContent = 'Rate limited - wait a moment';
-                    document.getElementById('lastUpdate').style.color = '#f59e0b';
-                } else {
-                    console.error(`[fetchData] API returned error:`, result);
-                    showError('API Error: ' + (result.error || 'Unknown error'));
-                }
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    console.log(`[fetchData] Request aborted (new request started)`);
-                    return;
-                }
-                console.error(`[fetchData] Fetch error:`, error);
-                showError('Backend not available. Please run: python3 run.py');
-            }
-            
-            loading.style.display = 'none';
+        function loadDemoData() {
+            currentData = generateDemoData();
+            document.getElementById('statTotal').textContent = currentData.length;
+            document.getElementById('lastUpdate').textContent = `DEMO - ${new Date().toLocaleTimeString()}`;
             renderChart();
         }
         
-        function showError(message) {
-            console.error(`[showError] Called with message: ${message}`);
-            console.trace('[showError] Stack trace:');
+        function generateDemoData() {
+            const symbols = ['BTC','ETH','BNB','SOL','XRP','ADA','DOGE','AVAX','DOT','MATIC','LINK','SHIB','UNI','ATOM','LTC','ETC','XLM','NEAR','APT','ARB','OP','INJ','SUI','SEI','TIA','FIL','AAVE','MKR','GRT','SAND','MANA','AXS','ENJ','CHZ','GALA','IMX','LDO','RPL','SSV','FXS','CRV','CVX','BAL','COMP','SNX','SUSHI','YFI','1INCH','DYDX','GMX','MAGIC','RDNT','PENDLE','JOE','GNS','VELA','HFT','BLUR','ID','EDU','SYN','STG','LRC','ZRX','KNC','BAND','REN','OCEAN','FET','AGIX','WLD','RNDR','PRIME','GUN','SWARMS','CTK','HUMA','ARC','JST','MYX','PORTAL'];
             
-            currentData = [];
-            document.getElementById('statTotal').textContent = '0';
-            document.getElementById('statSignals').textContent = '0';
-            document.getElementById('lastUpdate').textContent = 'Error';
-            document.getElementById('lastUpdate').style.color = '#ef4444';
+            const basePrices = {
+                'BTC': 95000, 'ETH': 3500, 'BNB': 650, 'SOL': 180, 'XRP': 2.2,
+                'ADA': 0.9, 'DOGE': 0.35, 'AVAX': 40, 'DOT': 7, 'MATIC': 0.5,
+                'LINK': 22, 'SHIB': 0.000022, 'UNI': 13, 'ATOM': 9, 'LTC': 110
+            };
             
-            const chart = document.getElementById('scatterChart');
-            Array.from(chart.children).forEach(child => {
-                if (child.id !== 'loading') child.remove();
+            const timeSeed = Math.floor(Date.now() / 60000);
+            const seededRandom = (seed) => {
+                const x = Math.sin(seed) * 10000;
+                return x - Math.floor(x);
+            };
+            
+            return symbols.map((symbol, i) => {
+                const seed = timeSeed + i * 137;
+                const rand1 = seededRandom(seed);
+                const rand2 = seededRandom(seed + 1);
+                const rand3 = seededRandom(seed + 2);
+                const rand4 = seededRandom(seed + 3);
+                
+                const rsi = 20 + rand1 * 60;
+                const rsiSmoothed = Math.max(5, Math.min(95, rsi + (rand2 - 0.5) * 15));
+                const change = (rand3 - 0.5) * 20;
+                
+                const basePrice = basePrices[symbol] || (1000 / (i + 1));
+                const price = basePrice * (1 + (rand4 - 0.5) * 0.1);
+                
+                let longLayer = 0, shortLayer = 0;
+                
+                if (rsi < 30) {
+                    longLayer = rand1 > 0.5 ? Math.floor(rand2 * 5) + 1 : 0;
+                } else if (rsi > 70) {
+                    shortLayer = rand1 > 0.5 ? Math.floor(rand2 * 5) + 1 : 0;
+                } else {
+                    if (rand3 > 0.6) {
+                        if (change < 0) longLayer = Math.floor(rand4 * 3) + 1;
+                        else shortLayer = Math.floor(rand4 * 3) + 1;
+                    }
+                }
+                
+                return {
+                    symbol,
+                    full_name: symbol + ' Token',
+                    price: price,
+                    price_change_24h: Math.round(change * 100) / 100,
+                    rsi: Math.round(rsi * 100) / 100,
+                    rsi_smoothed: Math.round(rsiSmoothed * 100) / 100,
+                    ema_13: price * 1.001,
+                    ema_21: price * 0.999,
+                    market_cap_rank: i + 1,
+                    long_layer: longLayer,
+                    short_layer: shortLayer
+                };
             });
-            
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'no-signal';
-            errorDiv.innerHTML = `<p style="color:#ef4444;font-weight:600;">${message}</p><p style="font-size:12px;margin-top:8px;">For demo mode, run: python3 run-demo.py</p>`;
-            chart.appendChild(errorDiv);
         }
         
         function renderChart() {
             const chart = document.getElementById('scatterChart');
-            const loading = document.getElementById('loading');
-            
-            Array.from(chart.children).forEach(child => {
-                if (child.id !== 'loading') child.remove();
-            });
+            chart.innerHTML = '';
             
             const zoneColors = currentDirection === 'long' ? LONG_ZONE_COLORS : SHORT_ZONE_COLORS;
             const layerKey = currentDirection === 'long' ? 'long_layer' : 'short_layer';
@@ -593,7 +550,6 @@
         
         function showTooltip(e, coin) {
             const tooltip = document.getElementById('tooltip');
-            const direction = currentDirection === 'long' ? 'Long' : 'Short';
             const layer = coin[currentDirection === 'long' ? 'long_layer' : 'short_layer'];
             
             tooltip.innerHTML = `
@@ -633,7 +589,7 @@
             return price.toLocaleString('en-US', { maximumFractionDigits: 2 });
         }
         
-        setInterval(fetchData, 120000);
+        setInterval(loadDemoData, 60000);
     </script>
 </body>
 </html>
