@@ -1,9 +1,11 @@
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import aiohttp
 import asyncio
 import ssl
+import os
 from datetime import datetime
 
 app = FastAPI(title="Crypto EMA + RSI Heatmap API")
@@ -14,6 +16,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIST = os.path.join(BASE_DIR, 'frontend', 'dist')
 
 COINGECKO_API = "https://api.coingecko.com/api/v3"
 
@@ -99,8 +104,8 @@ def detect_signal_layer(rsi: float, rsi_smoothed: float, ema_13: float, ema_21: 
     return result
 
 
-@app.get("/")
-async def root():
+@app.get("/api")
+async def api_root():
     return {"message": "Crypto EMA + RSI Heatmap API", "status": "running"}
 
 
@@ -252,6 +257,22 @@ async def get_stats(timeframe: str = Query(default="4h")):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+# Serve frontend static files
+if os.path.exists(FRONTEND_DIST):
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
+    
+    @app.get("/")
+    async def serve_frontend():
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+    
+    @app.get("/{full_path:path}")
+    async def catch_all(full_path: str):
+        file_path = os.path.join(FRONTEND_DIST, full_path)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
 
 
 if __name__ == "__main__":

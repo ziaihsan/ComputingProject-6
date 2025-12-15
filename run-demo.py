@@ -9,7 +9,7 @@ import os
 import webbrowser
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DEMO_HTML = os.path.join(BASE_DIR, 'frontend', 'demo.html')
+DEMO_HTML = os.path.join(BASE_DIR, 'frontend', 'demo-old.html')
 
 def main():
     print("=" * 50)
