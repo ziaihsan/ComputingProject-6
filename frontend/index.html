@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Market RSI Heatmap</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #eef2f7;
+            --panel: #ffffff;
+            --border: #d8e0ea;
+            --text: #101626;
+            --muted: #64708a;
+            --overbought: #f16679;
+            --strong: #d8749f;
+            --neutral: #6f7789;
+            --weak: #68b3a1;
+            --oversold: #36b988;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at 20% 20%, rgba(241, 102, 121, 0.06), transparent 30%),
+                        radial-gradient(circle at 70% 10%, rgba(104, 179, 161, 0.08), transparent 32%),
+                        linear-gradient(135deg, #f4f6fb 0%, #e8edf6 50%, #f2f4fb 100%);
+            color: var(--text);
+            font-family: "Inter", system-ui, sans-serif;
+            padding: 18px;
+        }
+        .page { max-width: 1300px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px 18px;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.06);
+        }
+        header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+        h1 { font-size: 22px; font-weight: 700; }
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 14px; }
+        .control-group label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+        .pill-group { display: flex; flex-wrap: wrap; gap: 6px; }
+        .pill {
+            border: 1px solid var(--border);
+            background: #f8fbff;
+            color: var(--muted);
+            padding: 7px 12px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pill:hover { background: #eef3fa; }
+        .pill.active { background: #e6edf7; color: var(--text); border-color: #c7d3e4; }
+        .pill .dot { width: 10px; height: 10px; border-radius: 50%; }
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            background: #f8fbff;
+            color: var(--text);
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+        }
+        select:focus, input:focus { border-color: #b8c5d8; }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: none;
+            font-weight: 600;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #161c2f, #1f2a42);
+            color: #fff;
+        }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 16px rgba(0,0,0,0.12); }
+        .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+        .legend-item {
+            display: flex; align-items: center; gap: 6px;
+            font-size: 12px; color: var(--muted);
+            padding: 6px 12px;
+            background: #f8fbff;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .legend-item .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .chart-container { height: 500px; position: relative; margin: 16px 0; }
+        .stats-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 14px; }
+        .stat-card {
+            background: #f8fbff;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            min-width: 140px;
+        }
+        .stat-card small { display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+        .stat-card strong { font-size: 18px; font-weight: 700; }
+        .table-container { overflow-x: auto; margin-top: 16px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; padding: 12px 10px; color: var(--muted); font-weight: 600; border-bottom: 2px solid var(--border); }
+        td { padding: 10px; border-bottom: 1px solid #eef1f6; }
+        tr:hover { background: #f8fbff; }
+        .rsi-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 12px;
+            color: #fff;
+            min-width: 50px;
+            text-align: center;
+        }
+        .rsi-overbought { background: var(--overbought); }
+        .rsi-strong { background: var(--strong); }
+        .rsi-neutral { background: var(--neutral); }
+        .rsi-weak { background: var(--weak); }
+        .rsi-oversold { background: var(--oversold); }
+        .signal-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 4px;
+        }
+        .signal-long { background: #d4edda; color: #155724; }
+        .signal-short { background: #f8d7da; color: #721c24; }
+        .positive { color: #0d9e6a; }
+        .negative { color: #dc3545; }
+        .note { color: var(--muted); font-size: 12px; margin-top: 12px; line-height: 1.5; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+        .tab {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #f8fbff;
+            border: 1px solid var(--border);
+            color: var(--muted);
+        }
+        .tab.active { background: var(--text); color: #fff; border-color: var(--text); }
+        .hidden { display: none; }
+        .loader { display: flex; align-items: center; justify-content: center; padding: 60px; }
+        .spinner {
+            width: 36px; height: 36px;
+            border: 3px solid var(--border);
+            border-top-color: var(--text);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="panel">
+            <h1>🔥 Crypto Market RSI Heatmap</h1>
+            <div style="display:flex;gap:10px;align-items:center;">
+                <span id="lastUpdate" style="font-size:12px;color:var(--muted);"></span>
+                <button id="refreshBtn" class="btn btn-primary">🔄 Refresh</button>
+            </div>
+        </header>
+
+        <section class="panel">
+            <div class="controls">
+                <div class="control-group">
+                    <label>Filter Status</label>
+                    <div id="statusFilters" class="pill-group"></div>
+                </div>
+                <div class="control-group">
+                    <label>Cari</label>
+                    <input type="text" id="searchInput" placeholder="BTC, ETH, SOL...">
+                </div>
+                <div class="control-group">
+                    <label>Jumlah Aset</label>
+                    <select id="limitSelect">
+                        <option value="20" selected>Top 20 (Cepat)</option>
+                        <option value="50">Top 50</option>
+                        <option value="100">Top 100</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Timeframe</label>
+                    <select id="timeframeSelect">
+                        <option value="15m">15 menit</option>
+                        <option value="1h">1 jam</option>
+                        <option value="4h" selected>4 jam</option>
+                        <option value="12h">12 jam</option>
+                        <option value="24h">24 jam</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-item"><span class="dot" style="background:var(--overbought)"></span>Overbought (≥70)</div>
+                <div class="legend-item"><span class="dot" style="background:var(--strong)"></span>Strong (60-69)</div>
+                <div class="legend-item"><span class="dot" style="background:var(--neutral)"></span>Neutral (40-59)</div>
+                <div class="legend-item"><span class="dot" style="background:var(--weak)"></span>Weak (30-39)</div>
+                <div class="legend-item"><span class="dot" style="background:var(--oversold)"></span>Oversold (≤30)</div>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" data-view="chart">📊 Chart</div>
+                <div class="tab" data-view="table">📋 Tabel</div>
+                <div class="tab" data-view="signals">⚡ Sinyal</div>
+            </div>
+
+            <div id="loading" class="loader">
+                <div class="spinner"></div>
+                <span style="margin-left:12px;color:var(--muted);">Memuat data...</span>
+            </div>
+
+            <div id="chartView" class="view-content" style="display:none;">
+                <div class="chart-container">
+                    <canvas id="rsiChart"></canvas>
+                </div>
+            </div>
+
+            <div id="tableView" class="view-content hidden">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Symbol</th>
+                                <th>Harga</th>
+                                <th>24h</th>
+                                <th>RSI 15m</th>
+                                <th>RSI 1h</th>
+                                <th>RSI 4h</th>
+                                <th>RSI 12h</th>
+                                <th>RSI 24h</th>
+                                <th>Sinyal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="signalsView" class="view-content hidden">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                    <div>
+                        <h3 style="color:var(--oversold);margin-bottom:12px;">🟢 Long Signals</h3>
+                        <div id="longSignals"></div>
+                    </div>
+                    <div>
+                        <h3 style="color:var(--overbought);margin-bottom:12px;">🔴 Short Signals</h3>
+                        <div id="shortSignals"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-card"><small>Rata-rata RSI</small><strong id="statAvg">-</strong></div>
+                <div class="stat-card"><small>Total Aset</small><strong id="statTotal">-</strong></div>
+                <div class="stat-card"><small>Overbought</small><strong id="statOverbought" style="color:var(--overbought)">-</strong></div>
+                <div class="stat-card"><small>Oversold</small><strong id="statOversold" style="color:var(--oversold)">-</strong></div>
+                <div class="stat-card"><small>Sinyal Aktif</small><strong id="statSignals" style="color:#f59e0b">-</strong></div>
+            </div>
+
+            <p class="note">📌 Area berwarna menunjukkan zona RSI. Hover titik untuk detail. Data real-time dari Binance API dengan kalkulasi EMA + RSI Multi-Layer.</p>
+        </section>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        let currentData = [];
+        let chart = null;
+        let selectedStatuses = new Set(['overbought', 'strong', 'neutral', 'weak', 'oversold']);
+
+        const statusConfig = [
+            { key: 'overbought', label: 'Overbought', min: 70, max: 100, color: '#f16679' },
+            { key: 'strong', label: 'Strong', min: 60, max: 70, color: '#d8749f' },
+            { key: 'neutral', label: 'Neutral', min: 40, max: 60, color: '#6f7789' },
+            { key: 'weak', label: 'Weak', min: 30, max: 40, color: '#68b3a1' },
+            { key: 'oversold', label: 'Oversold', min: 0, max: 30, color: '#36b988' }
+        ];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            initFilters();
+            initTabs();
+            fetchData();
+        });
+
+        function initFilters() {
+            const container = document.getElementById('statusFilters');
+            statusConfig.forEach(s => {
+                const pill = document.createElement('div');
+                pill.className = 'pill active';
+                pill.dataset.key = s.key;
+                pill.innerHTML = `<span class="dot" style="background:${s.color}"></span>${s.label}`;
+                pill.addEventListener('click', () => {
+                    pill.classList.toggle('active');
+                    if (pill.classList.contains('active')) {
+                        selectedStatuses.add(s.key);
+                    } else {
+                        selectedStatuses.delete(s.key);
+                    }
+                    renderAll();
+                });
+                container.appendChild(pill);
+            });
+        }
+
+        function initTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.view-content').forEach(v => v.classList.add('hidden'));
+                    tab.classList.add('active');
+                    document.getElementById(tab.dataset.view + 'View').classList.remove('hidden');
+                });
+            });
+        }
+
+        async function fetchData() {
+            const loading = document.getElementById('loading');
+            loading.style.display = 'flex';
+            
+            const limit = document.getElementById('limitSelect').value;
+            const timeframe = document.getElementById('timeframeSelect').value;
+
+            try {
+                const response = await fetch(
+                    `${API_BASE}/api/heatmap?limit=${limit}&timeframe=${timeframe}`
+                );
+                const result = await response.json();
+                console.log('API Response:', result);
+
+                if (result.success && result.data?.length > 0) {
+                    currentData = result.data;
+                    document.getElementById('lastUpdate').textContent = 
+                        `Update: ${new Date().toLocaleTimeString('id-ID')} (${result.count} coins)`;
+                } else {
+                    loadDemoData();
+                }
+            } catch (error) {
+                console.log('Backend tidak tersedia, menggunakan demo data');
+                loadDemoData();
+            }
+
+            // Hide loading and show content
+            loading.style.display = 'none';
+            document.getElementById('chartView').style.display = '';
+            document.getElementById('chartView').classList.remove('hidden');
+            
+            renderAll();
+        }
+
+        function loadDemoData() {
+            currentData = [
+                { symbol: 'BTC', price: 104250, price_change_24h: 2.5, rsi_15m: 55, rsi_1h: 62, rsi_4h: 58, rsi_12h: 51, rsi_24h: 48, long_layer: 1, short_layer: 0, volume_24h: 5000000000 },
+                { symbol: 'ETH', price: 3920, price_change_24h: 3.2, rsi_15m: 68, rsi_1h: 71, rsi_4h: 65, rsi_12h: 58, rsi_24h: 52, long_layer: 0, short_layer: 2, volume_24h: 2000000000 },
+                { symbol: 'SOL', price: 172.5, price_change_24h: 5.1, rsi_15m: 72, rsi_1h: 75, rsi_4h: 70, rsi_12h: 63, rsi_24h: 55, long_layer: 0, short_layer: 3, volume_24h: 1500000000 },
+                { symbol: 'XRP', price: 2.45, price_change_24h: -1.2, rsi_15m: 42, rsi_1h: 38, rsi_4h: 35, rsi_12h: 40, rsi_24h: 45, long_layer: 2, short_layer: 0, volume_24h: 1000000000 },
+                { symbol: 'DOGE', price: 0.42, price_change_24h: 1.8, rsi_15m: 28, rsi_1h: 32, rsi_4h: 29, rsi_12h: 35, rsi_24h: 38, long_layer: 4, short_layer: 0, volume_24h: 800000000 },
+                { symbol: 'ADA', price: 1.12, price_change_24h: 0.5, rsi_15m: 50, rsi_1h: 48, rsi_4h: 52, rsi_12h: 49, rsi_24h: 51, long_layer: 0, short_layer: 0, volume_24h: 600000000 },
+                { symbol: 'AVAX', price: 42.8, price_change_24h: 4.2, rsi_15m: 65, rsi_1h: 68, rsi_4h: 62, rsi_12h: 55, rsi_24h: 50, long_layer: 0, short_layer: 1, volume_24h: 500000000 },
+                { symbol: 'LINK', price: 28.5, price_change_24h: -0.8, rsi_15m: 35, rsi_1h: 40, rsi_4h: 38, rsi_12h: 42, rsi_24h: 45, long_layer: 2, short_layer: 0, volume_24h: 400000000 },
+                { symbol: 'DOT', price: 8.75, price_change_24h: 2.1, rsi_15m: 58, rsi_1h: 55, rsi_4h: 60, rsi_12h: 52, rsi_24h: 48, long_layer: 1, short_layer: 0, volume_24h: 350000000 },
+                { symbol: 'MATIC', price: 0.58, price_change_24h: -2.5, rsi_15m: 25, rsi_1h: 28, rsi_4h: 30, rsi_12h: 35, rsi_24h: 40, long_layer: 5, short_layer: 0, volume_24h: 300000000 },
+                { symbol: 'UNI', price: 14.2, price_change_24h: 1.5, rsi_15m: 78, rsi_1h: 74, rsi_4h: 72, rsi_12h: 68, rsi_24h: 62, long_layer: 0, short_layer: 4, volume_24h: 280000000 },
+                { symbol: 'ATOM', price: 9.8, price_change_24h: -0.3, rsi_15m: 45, rsi_1h: 48, rsi_4h: 44, rsi_12h: 46, rsi_24h: 50, long_layer: 0, short_layer: 0, volume_24h: 250000000 },
+            ];
+            document.getElementById('lastUpdate').textContent = 'Demo Mode';
+        }
+
+        function getStatus(rsi) {
+            if (rsi == null) return 'neutral';
+            if (rsi >= 70) return 'overbought';
+            if (rsi >= 60) return 'strong';
+            if (rsi >= 40) return 'neutral';
+            if (rsi >= 30) return 'weak';
+            return 'oversold';
+        }
+
+        function getFilteredData() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const tf = document.getElementById('timeframeSelect').value;
+            const rsiKey = `rsi_${tf}`;
+
+            return currentData.filter(coin => {
+                const status = getStatus(coin[rsiKey]);
+                const matchSearch = !search || coin.symbol.toLowerCase().includes(search);
+                const matchStatus = selectedStatuses.has(status);
+                return matchSearch && matchStatus;
+            });
+        }
+
+        function renderAll() {
+            renderChart();
+            renderTable();
+            renderSignals();
+            renderStats();
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('rsiChart').getContext('2d');
+            const filtered = getFilteredData();
+            const tf = document.getElementById('timeframeSelect').value;
+            const rsiKey = `rsi_${tf}`;
+
+            const datasets = statusConfig.map(s => ({
+                label: s.label,
+                data: filtered
+                    .filter(c => getStatus(c[rsiKey]) === s.key)
+                    .map((c, i) => ({
+                        x: i + (Math.random() - 0.5) * 0.3,
+                        y: c[rsiKey],
+                        r: Math.max(5, Math.min(15, Math.sqrt(c.volume_24h || 1e8) / 8000)),
+                        symbol: c.symbol,
+                        price: c.price,
+                        change: c.price_change_24h
+                    })),
+                backgroundColor: s.color + 'AA',
+                borderColor: s.color,
+                borderWidth: 1
+            }));
+
+            if (chart) chart.destroy();
+
+            chart = new Chart(ctx, {
+                type: 'bubble',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => {
+                                    const d = ctx.raw;
+                                    return [
+                                        `${d.symbol}`,
+                                        `RSI: ${d.y?.toFixed(1)}`,
+                                        `Harga: $${formatPrice(d.price)}`,
+                                        `24h: ${d.change >= 0 ? '+' : ''}${d.change?.toFixed(2)}%`
+                                    ];
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { display: false, min: -1 },
+                        y: {
+                            min: 0, max: 100,
+                            ticks: { stepSize: 10 },
+                            grid: { color: '#e5e9f0' }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'zoneOverlay',
+                    beforeDraw(chart) {
+                        const { ctx, chartArea, scales: { y } } = chart;
+                        if (!chartArea) return;
+                        const zones = [
+                            { from: 70, to: 100, color: 'rgba(241,102,121,0.12)' },
+                            { from: 60, to: 70, color: 'rgba(216,116,159,0.08)' },
+                            { from: 40, to: 60, color: 'rgba(111,119,137,0.05)' },
+                            { from: 30, to: 40, color: 'rgba(104,179,161,0.08)' },
+                            { from: 0, to: 30, color: 'rgba(54,185,136,0.12)' }
+                        ];
+                        ctx.save();
+                        zones.forEach(z => {
+                            const top = y.getPixelForValue(z.to);
+                            const bottom = y.getPixelForValue(z.from);
+                            ctx.fillStyle = z.color;
+                            ctx.fillRect(chartArea.left, top, chartArea.right - chartArea.left, bottom - top);
+                        });
+                        ctx.restore();
+                    }
+                }]
+            });
+        }
+
+        function renderTable() {
+            const filtered = getFilteredData();
+            const tbody = document.getElementById('tableBody');
+            
+            tbody.innerHTML = filtered.map((coin, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><strong>${coin.symbol}</strong></td>
+                    <td>$${formatPrice(coin.price)}</td>
+                    <td class="${coin.price_change_24h >= 0 ? 'positive' : 'negative'}">
+                        ${coin.price_change_24h >= 0 ? '+' : ''}${coin.price_change_24h?.toFixed(2)}%
+                    </td>
+                    <td>${rsiBadge(coin.rsi_15m)}</td>
+                    <td>${rsiBadge(coin.rsi_1h)}</td>
+                    <td>${rsiBadge(coin.rsi_4h)}</td>
+                    <td>${rsiBadge(coin.rsi_12h)}</td>
+                    <td>${rsiBadge(coin.rsi_24h)}</td>
+                    <td>${signalBadges(coin)}</td>
+                </tr>
+            `).join('');
+        }
+
+        function rsiBadge(rsi) {
+            if (rsi == null) return '-';
+            const status = getStatus(rsi);
+            return `<span class="rsi-badge rsi-${status}">${rsi.toFixed(1)}</span>`;
+        }
+
+        function signalBadges(coin) {
+            let html = '';
+            if (coin.long_layer > 0) {
+                html += `<span class="signal-badge signal-long">L${coin.long_layer}</span>`;
+            }
+            if (coin.short_layer > 0) {
+                html += `<span class="signal-badge signal-short">S${coin.short_layer}</span>`;
+            }
+            return html || '-';
+        }
+
+        function renderSignals() {
+            const longList = document.getElementById('longSignals');
+            const shortList = document.getElementById('shortSignals');
+
+            const longs = currentData.filter(c => c.long_layer > 0).sort((a, b) => b.long_layer - a.long_layer);
+            const shorts = currentData.filter(c => c.short_layer > 0).sort((a, b) => b.short_layer - a.short_layer);
+
+            longList.innerHTML = longs.length ? longs.map(c => signalCard(c, 'long')).join('') : '<p style="color:var(--muted)">Tidak ada sinyal Long</p>';
+            shortList.innerHTML = shorts.length ? shorts.map(c => signalCard(c, 'short')).join('') : '<p style="color:var(--muted)">Tidak ada sinyal Short</p>';
+        }
+
+        function signalCard(coin, type) {
+            const layer = type === 'long' ? coin.long_layer : coin.short_layer;
+            const color = type === 'long' ? 'var(--oversold)' : 'var(--overbought)';
+            return `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#f8fbff;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">
+                    <div>
+                        <strong>${coin.symbol}</strong>
+                        <span style="color:var(--muted);margin-left:8px;">$${formatPrice(coin.price)}</span>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="background:${color};color:#fff;padding:4px 10px;border-radius:6px;font-weight:600;font-size:12px;">Layer ${layer}</span>
+                        <span class="${coin.price_change_24h >= 0 ? 'positive' : 'negative'}">${coin.price_change_24h >= 0 ? '+' : ''}${coin.price_change_24h?.toFixed(2)}%</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderStats() {
+            const filtered = getFilteredData();
+            const tf = document.getElementById('timeframeSelect').value;
+            const rsiKey = `rsi_${tf}`;
+
+            const validRsi = filtered.filter(c => c[rsiKey] != null);
+            const avg = validRsi.length ? validRsi.reduce((a, b) => a + b[rsiKey], 0) / validRsi.length : 0;
+
+            document.getElementById('statAvg').textContent = avg.toFixed(1);
+            document.getElementById('statTotal').textContent = filtered.length;
+            document.getElementById('statOverbought').textContent = filtered.filter(c => c[rsiKey] >= 70).length;
+            document.getElementById('statOversold').textContent = filtered.filter(c => c[rsiKey] <= 30).length;
+            document.getElementById('statSignals').textContent = currentData.filter(c => c.long_layer > 0 || c.short_layer > 0).length;
+        }
+
+        function formatPrice(price) {
+            if (!price) return '0';
+            if (price < 0.01) return price.toFixed(6);
+            if (price < 1) return price.toFixed(4);
+            if (price < 100) return price.toFixed(2);
+            return price.toLocaleString('en-US', { maximumFractionDigits: 2 });
+        }
+
+        // Event listeners
+        document.getElementById('refreshBtn').addEventListener('click', fetchData);
+        document.getElementById('searchInput').addEventListener('input', renderAll);
+        document.getElementById('limitSelect').addEventListener('change', fetchData);
+        document.getElementById('timeframeSelect').addEventListener('change', renderAll);
+
+        // Auto refresh setiap 2 menit
+        setInterval(fetchData, 120000);
+    </script>
+</body>
+</html>
