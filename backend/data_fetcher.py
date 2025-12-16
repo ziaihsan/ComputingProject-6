@@ -6,7 +6,7 @@ import time
 class CryptoDataFetcher:
     """Fetch crypto data from Binance API"""
     
-    BINANCE_API = "https://api.binance.com/api/v3"
+    BINANCE_API = "https://data-api.binance.vision/api/v3"
     
     INTERVALS = {
         '5m': '5m',
