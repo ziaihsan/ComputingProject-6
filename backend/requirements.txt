@@ -5,3 +5,4 @@ numpy==1.26.2
 aiohttp==3.9.1
 python-dotenv==1.0.0
 websockets==12.0
+certifi>=2023.0.0

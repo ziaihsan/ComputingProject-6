@@ -1,5 +1,7 @@
 import aiohttp
 import asyncio
+import ssl
+import certifi
 from typing import List, Dict, Optional
 import time
 
@@ -22,7 +24,9 @@ class CryptoDataFetcher:
         self.session: Optional[aiohttp.ClientSession] = None
         
     async def __aenter__(self):
-        self.session = aiohttp.ClientSession()
+        ssl_context = ssl.create_default_context(cafile=certifi.where())
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        self.session = aiohttp.ClientSession(connector=connector)
         return self
         
     async def __aexit__(self, *args):
