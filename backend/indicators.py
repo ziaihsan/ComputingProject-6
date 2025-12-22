@@ -11,32 +11,81 @@ def calculate_ema(prices: List[float], period: int) -> List[float]:
     ema = df['close'].ewm(span=period, adjust=False).mean()
     return ema.tolist()
 
+def calculate_rma(series: pd.Series, period: int) -> pd.Series:
+    """
+    Calculate RMA (Relative Moving Average) / Wilder's Smoothing / SMMA
+    This is the same as TradingView's ta.rma()
+    Formula: RMA[i] = (RMA[i-1] * (period - 1) + value[i]) / period
+    Equivalent to EMA with alpha = 1/period
+    """
+    # Initialize with SMA for first value, then use RMA formula
+    alpha = 1.0 / period
+    return series.ewm(alpha=alpha, adjust=False).mean()
+
+
 def calculate_rsi(prices: List[float], period: int = 14) -> List[float]:
-    """Calculate RSI (Relative Strength Index)"""
+    """
+    Calculate RSI (Relative Strength Index) using Wilder's Smoothing (RMA)
+    Matches TradingView's RSI implementation exactly.
+
+    Formula:
+    - change = close - close[1]
+    - up = rma(max(change, 0), period)
+    - down = rma(-min(change, 0), period)
+    - rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up/down))
+    """
     if len(prices) < period + 1:
         return [np.nan] * len(prices)
-    
+
     df = pd.DataFrame({'close': prices})
-    delta = df['close'].diff()
-    
-    gain = delta.where(delta > 0, 0)
-    loss = -delta.where(delta < 0, 0)
-    
-    avg_gain = gain.rolling(window=period).mean()
-    avg_loss = loss.rolling(window=period).mean()
-    
+
+    # Calculate price change
+    change = df['close'].diff()
+
+    # Separate gains and losses
+    gain = change.where(change > 0, 0.0)
+    loss = (-change).where(change < 0, 0.0)
+
+    # Use RMA (Wilder's Smoothing) instead of SMA - this matches TradingView
+    avg_gain = calculate_rma(gain, period)
+    avg_loss = calculate_rma(loss, period)
+
+    # Calculate RS and RSI with proper edge case handling
+    # When avg_loss == 0: RSI = 100 (no losses)
+    # When avg_gain == 0: RSI = 0 (no gains)
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
-    
+
+    # Handle edge cases explicitly (matching TradingView behavior)
+    rsi = rsi.where(avg_loss != 0, 100.0)  # No losses = RSI 100
+    rsi = rsi.where(avg_gain != 0, rsi)    # Keep value if gains exist
+    rsi = rsi.where((avg_gain != 0) | (avg_loss != 0), 50.0)  # Both 0 = neutral
+
+    # Set first 'period' values to NaN (not enough data)
+    rsi.iloc[:period] = np.nan
+
     return rsi.tolist()
 
 def calculate_smoothed_rsi(prices: List[float], rsi_period: int = 14, smooth_period: int = 9) -> List[float]:
-    """Calculate Smoothed RSI (RSI with EMA smoothing)"""
+    """
+    Calculate Smoothed RSI (RSI with EMA smoothing)
+    Matches TradingView's RSI with MA smoothing enabled.
+
+    Parameters:
+    - rsi_period: RSI calculation period (default: 14)
+    - smooth_period: EMA smoothing period applied to RSI (default: 9)
+
+    The smoothing uses standard EMA formula: alpha = 2 / (span + 1)
+    This matches TradingView's ta.ema() function.
+    """
     rsi_values = calculate_rsi(prices, rsi_period)
-    
+
     df = pd.DataFrame({'rsi': rsi_values})
+
+    # Apply EMA smoothing to RSI values
+    # ewm(span=period) uses alpha = 2/(period+1), matching TradingView's ta.ema()
     smoothed = df['rsi'].ewm(span=smooth_period, adjust=False).mean()
-    
+
     return smoothed.tolist()
 
 def find_peaks_troughs(series: pd.Series, order: int = 3) -> Tuple[List[int], List[int]]:

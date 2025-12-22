@@ -20,3 +20,9 @@ Backend: Python, FastAPI | Frontend: HTML, TailwindCSS | Data: Binance API
 
 ## Team
 Rabih Akbar Nurdin (PM), Yoga Bayu Samudra, Zia Ul Ihsan, Putu Satya Krisnaputra, Sigit Hadi Putranto
+
+Jika ada "ERROR:    [Errno 48] Address already in use" itu artinya PID localhost (8000) ada yg dipakai. Lakukan:
+lsof -i :8000
+lalu salin PID nya
+kill -9 [PID]
+lalu run ulang run.py
