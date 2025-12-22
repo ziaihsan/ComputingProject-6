@@ -36,12 +36,10 @@ def install_dependencies():
     return True
 
 def build_frontend():
-    """Build the frontend if not already built"""
-    dist_dir = os.path.join(FRONTEND_DIR, 'dist')
-    if not os.path.exists(dist_dir) or not os.listdir(dist_dir):
-        print("Building frontend...")
-        subprocess.run(['npm', 'run', 'build'], cwd=FRONTEND_DIR, check=True)
-        print("Frontend built successfully")
+    """Build the React frontend"""
+    print("Building frontend...")
+    subprocess.run(['npm', 'run', 'build'], cwd=FRONTEND_DIR, check=True)
+    print("Frontend built successfully")
 
 def open_browser_delayed():
     """Open browser after short delay to ensure backend is ready"""

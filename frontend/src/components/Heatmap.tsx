@@ -353,41 +353,43 @@ export function Heatmap() {
           </div>
 
           {/* Right Controls */}
-          <div className="flex items-center gap-3">
-            {/* View Toggle */}
+          <div className="flex items-center gap-3 ml-auto">
+            {/* View Toggle - More visible with labels */}
             <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setViewMode('heatmap')}
                 className={cn(
-                  "h-8 w-8 p-0 rounded-md transition-all",
+                  "h-8 px-3 gap-1.5 rounded-md transition-all text-xs font-medium",
                   viewMode === 'heatmap'
                     ? "bg-blue-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white hover:bg-slate-700"
                 )}
               >
                 <LayoutGrid className="h-4 w-4" />
+                <span>Heatmap</span>
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setViewMode('table')}
                 className={cn(
-                  "h-8 w-8 p-0 rounded-md transition-all",
+                  "h-8 px-3 gap-1.5 rounded-md transition-all text-xs font-medium",
                   viewMode === 'table'
                     ? "bg-blue-600 text-white shadow-md"
                     : "text-slate-400 hover:text-white hover:bg-slate-700"
                 )}
               >
                 <Table2 className="h-4 w-4" />
+                <span>Table</span>
               </Button>
             </div>
 
             {/* Timeframe Select */}
             <Select value={timeframe} onValueChange={(v) => setTimeframe(v as Timeframe)}>
-              <SelectTrigger className="w-[100px] bg-slate-800 border-slate-700 text-white">
-                <Clock className="h-4 w-4 mr-2 text-slate-400" />
+              <SelectTrigger className="w-[130px] bg-slate-800 border-slate-700 text-white">
+                <Clock className="h-4 w-4 mr-2 text-slate-400 flex-shrink-0" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700 text-white">
@@ -400,8 +402,8 @@ export function Heatmap() {
 
             {/* Limit Select */}
             <Select value={limit} onValueChange={(v) => setLimit(v as CoinLimit)}>
-              <SelectTrigger className="w-[110px] bg-slate-800 border-slate-700 text-white">
-                <BarChart3 className="h-4 w-4 mr-2 text-slate-400" />
+              <SelectTrigger className="w-[130px] bg-slate-800 border-slate-700 text-white">
+                <BarChart3 className="h-4 w-4 mr-2 text-slate-400 flex-shrink-0" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700 text-white">
