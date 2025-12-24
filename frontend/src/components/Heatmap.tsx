@@ -4,7 +4,7 @@ import {
   RefreshCw, TrendingUp, TrendingDown, Loader2,
   Activity, Clock, BarChart3, Zap, ArrowUpRight, ArrowDownRight,
   Circle, ChevronUp, ChevronDown, Filter, Table2, LayoutGrid,
-  ExternalLink
+  ExternalLink, Coins
 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
@@ -402,8 +402,8 @@ export function Heatmap() {
 
             {/* Limit Select */}
             <Select value={limit} onValueChange={(v) => setLimit(v as CoinLimit)}>
-              <SelectTrigger className="w-[130px] bg-slate-800 border-slate-700 text-white">
-                <BarChart3 className="h-4 w-4 mr-2 text-slate-400 flex-shrink-0" />
+              <SelectTrigger className="w-[155px] bg-slate-800 border-slate-700 text-white">
+                <Coins className="h-4 w-4 mr-2 text-amber-400 flex-shrink-0" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-800 border-slate-700 text-white">
@@ -430,23 +430,25 @@ export function Heatmap() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
-          className="flex items-center justify-center gap-1"
+          className="flex items-center justify-center gap-2"
         >
-          <span className="text-xs text-slate-500 mr-2">RSI Scale:</span>
-          <div className="flex items-center h-3 rounded-full overflow-hidden">
-            <div className="w-16 h-full bg-gradient-to-r from-emerald-600 to-emerald-500" />
-            <div className="w-12 h-full bg-gradient-to-r from-cyan-500 to-cyan-400" />
-            <div className="w-20 h-full bg-gradient-to-r from-slate-500 to-slate-400" />
-            <div className="w-12 h-full bg-gradient-to-r from-orange-400 to-orange-500" />
-            <div className="w-16 h-full bg-gradient-to-r from-red-500 to-red-600" />
-          </div>
-          <div className="flex items-center gap-4 ml-3 text-[10px] text-slate-400">
-            <span>0</span>
-            <span>30</span>
-            <span>40</span>
-            <span>60</span>
-            <span>70</span>
-            <span>100</span>
+          <span className="text-xs text-slate-500">RSI Scale:</span>
+          <div className="flex flex-col">
+            <div className="flex h-3 rounded-full overflow-hidden">
+              <div className="w-16 h-full bg-gradient-to-r from-emerald-600 to-emerald-500" />
+              <div className="w-12 h-full bg-gradient-to-r from-cyan-500 to-cyan-400" />
+              <div className="w-20 h-full bg-gradient-to-r from-slate-500 to-slate-400" />
+              <div className="w-12 h-full bg-gradient-to-r from-orange-400 to-orange-500" />
+              <div className="w-16 h-full bg-gradient-to-r from-red-500 to-red-600" />
+            </div>
+            <div className="relative h-4 text-[10px] text-slate-400 mt-0.5" style={{ width: '304px' }}>
+              <span className="absolute" style={{ left: '0px' }}>0</span>
+              <span className="absolute" style={{ left: '58px' }}>30</span>
+              <span className="absolute" style={{ left: '106px' }}>40</span>
+              <span className="absolute" style={{ left: '187px' }}>60</span>
+              <span className="absolute" style={{ left: '234px' }}>70</span>
+              <span className="absolute" style={{ right: '0px' }}>100</span>
+            </div>
           </div>
         </motion.div>
 
