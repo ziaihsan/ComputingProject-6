@@ -4,6 +4,7 @@ import { X, Send, Loader2, MessageCircle, Sparkles, AlertCircle, Settings, Key }
 import { Button } from './ui/button'
 import { cn } from '@/lib/utils'
 import { ApiKeySettings } from './ApiKeySettings'
+import { MarkdownRenderer } from './MarkdownRenderer'
 import type { ChatMessage, ChatResponse, Timeframe } from '@/types'
 
 const API_BASE = 'http://localhost:8000'
@@ -234,7 +235,11 @@ export function ChatPanel({ isOpen, onClose, timeframe }: ChatPanelProps) {
                             : "bg-slate-800 text-slate-200 rounded-bl-md"
                         )}
                       >
-                        <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        {message.role === 'assistant' ? (
+                          <MarkdownRenderer content={message.content} className="text-sm" />
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                        )}
                         <p className={cn(
                           "text-[10px] mt-1",
                           message.role === 'user' ? "text-purple-200" : "text-slate-500"

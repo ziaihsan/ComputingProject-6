@@ -52,6 +52,11 @@ class ModelRequest(BaseModel):
     model: str
 
 
+class FundamentalRequest(BaseModel):
+    symbol: str
+    timeframe: str = "4h"
+
+
 app = FastAPI(title="Crypto EMA + RSI Heatmap API")
 cache_manager = CacheManager()
 
@@ -472,6 +477,53 @@ async def chat_with_ai(request: ChatRequest):
                 "success": False,
                 "response": f"An error occurred: {str(e)}",
                 "market_summary": None,
+                "error": "unknown"
+            },
+            status_code=500
+        )
+
+
+@app.post("/api/fundamental")
+async def get_fundamental_analysis(request: FundamentalRequest):
+    """Get AI-powered fundamental analysis for a specific coin"""
+    global gemini_service
+
+    # Reload API key if not configured
+    if gemini_service is None or not gemini_service.is_configured():
+        gemini_service = GeminiService()
+
+    # Check if Gemini service is available
+    if gemini_service is None or not gemini_service.is_configured():
+        return JSONResponse(
+            content={
+                "success": False,
+                "response": "API key not configured. Click the Settings button in AI Chat to enter your Gemini API key.",
+                "error": "service_unavailable"
+            },
+            status_code=503
+        )
+
+    try:
+        # Generate fundamental analysis
+        result = await gemini_service.generate_fundamental_analysis(
+            symbol=request.symbol,
+            timeframe=request.timeframe
+        )
+
+        return JSONResponse(
+            content={
+                "success": result["success"],
+                "response": result["response"],
+                "error": result.get("error")
+            }
+        )
+
+    except Exception as e:
+        print(f"Fundamental analysis error: {e}")
+        return JSONResponse(
+            content={
+                "success": False,
+                "response": f"An error occurred: {str(e)}",
                 "error": "unknown"
             },
             status_code=500

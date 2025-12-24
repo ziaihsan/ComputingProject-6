@@ -12,6 +12,7 @@ import { Card, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { cn, formatPrice } from '@/lib/utils'
 import { ChatPanel } from './ChatPanel'
+import { FundamentalModal } from './FundamentalModal'
 import type { CoinSignal, Direction, Timeframe, CoinLimit, HeatmapResponse } from '@/types'
 
 const API_BASE = 'http://localhost:8000'
@@ -74,6 +75,8 @@ export function Heatmap() {
   const [sortField, setSortField] = useState<SortField>('rank')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [selectedCoin, setSelectedCoin] = useState<CoinSignal | null>(null)
+  const [isFundamentalOpen, setIsFundamentalOpen] = useState(false)
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -754,6 +757,10 @@ export function Heatmap() {
                               }}
                               onMouseMove={(e) => setMousePos({ x: e.clientX, y: e.clientY })}
                               onMouseLeave={() => setHoveredCoin(null)}
+                              onClick={() => {
+                                setSelectedCoin(coin)
+                                setIsFundamentalOpen(true)
+                              }}
                               whileHover={{
                                 scale: 1.3,
                                 zIndex: 100,
@@ -814,7 +821,7 @@ export function Heatmap() {
                       <thead>
                         <tr className="border-b border-slate-800 bg-slate-800/50">
                           <th className="text-left px-4 py-3 text-xs font-medium text-slate-400 w-12">#</th>
-                          <th className="text-left px-4 py-3 text-xs font-medium text-slate-400">Symbol</th>
+                          <th className="text-left px-4 py-3 text-xs font-medium text-slate-400">Crypto</th>
                           <th
                             className="text-right px-4 py-3 text-xs font-medium text-slate-400 cursor-pointer hover:text-white"
                             onClick={() => handleSort('price')}
@@ -882,7 +889,15 @@ export function Heatmap() {
                                   {coin.symbol.slice(0, 2)}
                                 </div>
                                 <div>
-                                  <div className="font-medium text-white">{coin.symbol}</div>
+                                  <div
+                                    className="font-medium text-white cursor-pointer hover:text-blue-400 transition-colors"
+                                    onClick={() => {
+                                      setSelectedCoin(coin)
+                                      setIsFundamentalOpen(true)
+                                    }}
+                                  >
+                                    {coin.symbol}
+                                  </div>
                                   <div className="text-xs text-slate-500">{coin.full_name}</div>
                                 </div>
                               </div>
@@ -1069,6 +1084,14 @@ export function Heatmap() {
       <ChatPanel
         isOpen={isChatOpen}
         onClose={() => setIsChatOpen(false)}
+        timeframe={timeframe}
+      />
+
+      {/* Fundamental Analysis Modal */}
+      <FundamentalModal
+        isOpen={isFundamentalOpen}
+        onClose={() => setIsFundamentalOpen(false)}
+        symbol={selectedCoin?.symbol || ''}
         timeframe={timeframe}
       />
     </div>

@@ -332,3 +332,90 @@ Jawab pertanyaan user berdasarkan data di atas."""
             "strong_long_signals": strong_long,
             "strong_short_signals": strong_short
         }
+
+    async def generate_fundamental_analysis(
+        self,
+        symbol: str,
+        timeframe: str = "4h"
+    ) -> Dict:
+        """Generate AI-powered fundamental analysis for a specific coin
+
+        Uses Gemini 3 Flash specifically for this feature.
+        """
+
+        # Use Gemini 3 Flash specifically for fundamental analysis
+        FUNDAMENTAL_MODEL = "gemini-3-flash-preview"
+
+        if not self.api_key:
+            return {
+                "success": False,
+                "response": "API key not configured. Please enter your Gemini API key in settings.",
+                "error": "not_configured"
+            }
+
+        try:
+            # Create a dedicated model instance for fundamental analysis
+            genai.configure(api_key=self.api_key)
+            fundamental_model = genai.GenerativeModel(FUNDAMENTAL_MODEL)
+
+            system_prompt = f"""You are a crypto fundamental analyst. Provide a comprehensive fundamental analysis for {symbol}.
+
+Structure your response with these sections:
+
+## 1. INTRINSIC VALUE
+- Token supply model (fixed supply like BTC's 21M, or inflationary)
+- Primary use case and underlying technology
+- Team/Founder background and credibility
+
+## 2. MACROECONOMIC FACTORS
+- Impact of current interest rate environment
+- Regulatory landscape and recent developments
+- Overall crypto market sentiment
+
+## 3. COIN-SPECIFIC EVENTS
+- Upcoming token unlocks or vesting schedules
+- ETF approvals/applications (if applicable)
+- Protocol upgrades or major releases
+- Recent partnership announcements
+
+Keep the analysis concise but informative. Use bullet points for clarity.
+Timeframe context: {timeframe}
+
+IMPORTANT: End with a disclaimer that this is not financial advice."""
+
+            # Generate response using Gemini 3 Flash
+            response = fundamental_model.generate_content(system_prompt)
+
+            return {
+                "success": True,
+                "response": response.text,
+                "error": None
+            }
+
+        except Exception as e:
+            error_msg = str(e).lower()
+
+            if "api_key" in error_msg or "invalid" in error_msg or "401" in error_msg:
+                return {
+                    "success": False,
+                    "response": "Invalid API key. Please check and enter the correct API key in settings.",
+                    "error": "invalid_api_key"
+                }
+            elif "quota" in error_msg or "rate" in error_msg or "429" in error_msg:
+                return {
+                    "success": False,
+                    "response": "API usage limit reached. Please wait and try again.",
+                    "error": "rate_limit"
+                }
+            elif "not found" in error_msg or "404" in error_msg:
+                return {
+                    "success": False,
+                    "response": f"Model '{FUNDAMENTAL_MODEL}' not found. This may be a preview model not available in your region.",
+                    "error": "model_not_found"
+                }
+            else:
+                return {
+                    "success": False,
+                    "response": f"An error occurred: {str(e)}",
+                    "error": "unknown"
+                }
