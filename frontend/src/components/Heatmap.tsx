@@ -457,9 +457,44 @@ export function Heatmap() {
                   X
                 </Button>
               </div>
+            ) : !['50', '100', '150', '200'].includes(limit) ? (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => {
+                    setIsCustomLimit(true)
+                    setCustomLimitInput(limit)
+                  }}
+                  className="flex items-center w-[155px] bg-slate-800 border border-slate-700 rounded-md px-3 h-10 text-white hover:bg-slate-700 transition-colors"
+                >
+                  <Coins className="h-4 w-4 mr-2 text-amber-400 flex-shrink-0" />
+                  <span className="text-sm">{limit} coins</span>
+                </button>
+                <Select
+                  value=""
+                  onValueChange={(v) => {
+                    if (v === 'custom') {
+                      setIsCustomLimit(true)
+                      setCustomLimitInput(limit)
+                    } else {
+                      setLimit(v as CoinLimit)
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-10 bg-slate-800 border-slate-700 text-white px-2">
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                    <SelectItem value="50" className="text-white focus:bg-slate-700 focus:text-white">50 coins</SelectItem>
+                    <SelectItem value="100" className="text-white focus:bg-slate-700 focus:text-white">100 coins</SelectItem>
+                    <SelectItem value="150" className="text-white focus:bg-slate-700 focus:text-white">150 coins</SelectItem>
+                    <SelectItem value="200" className="text-white focus:bg-slate-700 focus:text-white">200 coins</SelectItem>
+                    <SelectItem value="custom" className="text-amber-400 focus:bg-slate-700 focus:text-amber-300">Custom...</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             ) : (
               <Select
-                value={['50', '100', '150', '200'].includes(limit) ? limit : 'custom'}
+                value={limit}
                 onValueChange={(v) => {
                   if (v === 'custom') {
                     setIsCustomLimit(true)
@@ -471,9 +506,7 @@ export function Heatmap() {
               >
                 <SelectTrigger className="w-[155px] bg-slate-800 border-slate-700 text-white">
                   <Coins className="h-4 w-4 mr-2 text-amber-400 flex-shrink-0" />
-                  <SelectValue>
-                    {['50', '100', '150', '200'].includes(limit) ? `${limit} coins` : `${limit} coins`}
-                  </SelectValue>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-700 text-white">
                   <SelectItem value="50" className="text-white focus:bg-slate-700 focus:text-white">50 coins</SelectItem>
