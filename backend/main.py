@@ -2,24 +2,65 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import aiohttp
 import asyncio
 import ssl
 import os
+import json
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from data_fetcher import CryptoDataFetcher
 from cache_manager import CacheManager
 from indicators import (
-    calculate_ema, 
-    calculate_rsi, 
-    calculate_smoothed_rsi, 
+    calculate_ema,
+    calculate_rsi,
+    calculate_smoothed_rsi,
     detect_signal_layer
 )
+from gemini_service import (
+    GeminiService, get_api_key, save_api_key, validate_api_key,
+    get_available_models, get_selected_model, save_selected_model
+)
+
+
+# Pydantic models untuk Chat API
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    message: str
+    timeframe: str = "4h"
+    conversation_history: Optional[List[ChatMessage]] = None
+
+
+class ChatResponse(BaseModel):
+    success: bool
+    response: str
+    market_summary: Optional[Dict] = None
+    error: Optional[str] = None
+
+
+class ApiKeyRequest(BaseModel):
+    api_key: str
+
+
+class ModelRequest(BaseModel):
+    model: str
+
 
 app = FastAPI(title="Crypto EMA + RSI Heatmap API")
 cache_manager = CacheManager()
+
+# Initialize Gemini Service (lazy loading to handle missing API key gracefully)
+gemini_service = None
+try:
+    gemini_service = GeminiService()
+except Exception as e:
+    print(f"Warning: Gemini service not initialized: {e}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -228,6 +269,213 @@ async def get_stats(timeframe: str = Query(default="4h")):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/settings/apikey")
+async def get_apikey_status():
+    """Check API key status (without exposing the key)"""
+    api_key = get_api_key()
+    if api_key:
+        # Mask API key, only show last 4 characters
+        masked = "*" * (len(api_key) - 4) + api_key[-4:]
+        return {
+            "configured": True,
+            "masked_key": masked,
+            "service_ready": gemini_service is not None and gemini_service.is_configured()
+        }
+    return {
+        "configured": False,
+        "masked_key": None,
+        "service_ready": False
+    }
+
+
+@app.post("/api/settings/apikey")
+async def set_apikey(request: ApiKeyRequest):
+    """Save and validate new API key"""
+    global gemini_service
+
+    api_key = request.api_key.strip()
+
+    if not api_key:
+        return JSONResponse(
+            content={"success": False, "error": "API key cannot be empty"},
+            status_code=400
+        )
+
+    # Validate API key
+    validation = validate_api_key(api_key)
+
+    if not validation["valid"]:
+        error_messages = {
+            "invalid_api_key": "Invalid API key. Please check and enter the correct key.",
+            "rate_limit": "API key is valid, but rate limit reached. Try again later.",
+        }
+        error_msg = error_messages.get(validation["error"], f"Validation failed: {validation['error']}")
+
+        # If rate limit, key might be valid, save anyway
+        if validation["error"] == "rate_limit":
+            save_api_key(api_key)
+            gemini_service = GeminiService()
+            return JSONResponse(
+                content={
+                    "success": True,
+                    "message": "API key saved. Rate limit reached, try chatting later.",
+                    "warning": "rate_limit"
+                }
+            )
+
+        return JSONResponse(
+            content={"success": False, "error": error_msg},
+            status_code=400
+        )
+
+    # Save API key
+    if save_api_key(api_key):
+        # Reload gemini service
+        gemini_service = GeminiService()
+        return JSONResponse(
+            content={"success": True, "message": "API key saved and validated successfully!"}
+        )
+    else:
+        return JSONResponse(
+            content={"success": False, "error": "Failed to save API key"},
+            status_code=500
+        )
+
+
+@app.delete("/api/settings/apikey")
+async def delete_apikey():
+    """Delete API key"""
+    global gemini_service
+    from pathlib import Path
+
+    api_key_file = Path(__file__).parent / ".api_key"
+    try:
+        if api_key_file.exists():
+            api_key_file.unlink()
+        gemini_service = GeminiService()
+        return {"success": True, "message": "API key deleted successfully"}
+    except Exception as e:
+        return JSONResponse(
+            content={"success": False, "error": str(e)},
+            status_code=500
+        )
+
+
+@app.get("/api/settings/models")
+async def get_models():
+    """Get list of available models"""
+    models = get_available_models()
+    current_model = get_selected_model()
+
+    return {
+        "models": models,
+        "current_model": current_model
+    }
+
+
+@app.post("/api/settings/models")
+async def set_model(request: ModelRequest):
+    """Set model to use"""
+    global gemini_service
+
+    model = request.model
+
+    if model not in get_available_models():
+        return JSONResponse(
+            content={"success": False, "error": f"Model '{model}' is not available"},
+            status_code=400
+        )
+
+    if save_selected_model(model):
+        # Reload gemini service with new model
+        gemini_service = GeminiService()
+        return {
+            "success": True,
+            "message": f"Model changed to {model}",
+            "current_model": model
+        }
+    else:
+        return JSONResponse(
+            content={"success": False, "error": "Failed to save model"},
+            status_code=500
+        )
+
+
+@app.post("/api/chat")
+async def chat_with_ai(request: ChatRequest):
+    """AI-powered trading chatbot using Gemini"""
+    global gemini_service
+
+    # Reload API key if not configured
+    if gemini_service is None or not gemini_service.is_configured():
+        gemini_service = GeminiService()
+
+    # Check if Gemini service is available
+    if gemini_service is None or not gemini_service.is_configured():
+        return JSONResponse(
+            content={
+                "success": False,
+                "response": "API key not configured. Click the Settings button to enter your Gemini API key.",
+                "market_summary": None,
+                "error": "service_unavailable"
+            },
+            status_code=503
+        )
+
+    try:
+        # 1. Fetch current heatmap data
+        heatmap_response = await get_heatmap(limit=100, timeframe=request.timeframe)
+        heatmap_data = json.loads(heatmap_response.body.decode())
+
+        if not heatmap_data.get('success'):
+            return JSONResponse(
+                content={
+                    "success": False,
+                    "response": "Failed to fetch market data. Please try again later.",
+                    "market_summary": None,
+                    "error": "data_fetch_failed"
+                },
+                status_code=500
+            )
+
+        # 2. Convert conversation history to dict format
+        history = None
+        if request.conversation_history:
+            history = [{"role": msg.role, "content": msg.content} for msg in request.conversation_history]
+
+        # 3. Generate AI response
+        result = await gemini_service.generate_response(
+            user_message=request.message,
+            market_data=heatmap_data,
+            timeframe=request.timeframe,
+            conversation_history=history
+        )
+
+        # 4. Get market summary
+        market_summary = gemini_service.get_market_summary(heatmap_data)
+
+        return JSONResponse(
+            content={
+                "success": result["success"],
+                "response": result["response"],
+                "market_summary": market_summary,
+                "error": result.get("error")
+            }
+        )
+
+    except Exception as e:
+        print(f"Chat error: {e}")
+        return JSONResponse(
+            content={
+                "success": False,
+                "response": f"An error occurred: {str(e)}",
+                "market_summary": None,
+                "error": "unknown"
+            },
+            status_code=500
+        )
 
 
 # Serve frontend static files

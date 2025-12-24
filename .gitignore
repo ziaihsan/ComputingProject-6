@@ -7,3 +7,9 @@ knowledge/
 
 *.db
 GEMINI.md
+
+# Environment variables (API keys) & config
+.env
+backend/.env
+backend/.api_key
+backend/.model_config

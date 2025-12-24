@@ -4,13 +4,14 @@ import {
   RefreshCw, TrendingUp, TrendingDown, Loader2,
   Activity, Clock, BarChart3, Zap, ArrowUpRight, ArrowDownRight,
   Circle, ChevronUp, ChevronDown, Filter, Table2, LayoutGrid,
-  ExternalLink, Coins
+  ExternalLink, Coins, MessageCircle
 } from 'lucide-react'
 import { Button } from './ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { Card, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { cn, formatPrice } from '@/lib/utils'
+import { ChatPanel } from './ChatPanel'
 import type { CoinSignal, Direction, Timeframe, CoinLimit, HeatmapResponse } from '@/types'
 
 const API_BASE = 'http://localhost:8000'
@@ -72,6 +73,7 @@ export function Heatmap() {
   const [rsiFilter, setRsiFilter] = useState<RSIFilter>('all')
   const [sortField, setSortField] = useState<SortField>('rank')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -517,6 +519,15 @@ export function Heatmap() {
                 </SelectContent>
               </Select>
             )}
+
+            {/* AI Chat Button */}
+            <Button
+              onClick={() => setIsChatOpen(true)}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <MessageCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">AI Chat</span>
+            </Button>
 
             {/* Refresh Button */}
             <Button
@@ -1053,6 +1064,13 @@ export function Heatmap() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* AI Chat Panel */}
+      <ChatPanel
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        timeframe={timeframe}
+      />
     </div>
   )
 }
