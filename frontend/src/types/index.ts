@@ -23,5 +23,5 @@ export interface HeatmapResponse {
 }
 
 export type Direction = 'long' | 'short'
-export type Timeframe = '15m' | '1h' | '4h' | '1d'
-export type CoinLimit = '50' | '100' | '150' | '200'
+export type Timeframe = '15m' | '1h' | '4h' | '12h' | '1d' | '1w'
+export type CoinLimit = string

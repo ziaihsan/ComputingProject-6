@@ -61,6 +61,8 @@ export function Heatmap() {
   const [direction, setDirection] = useState<Direction>('long')
   const [timeframe, setTimeframe] = useState<Timeframe>('4h')
   const [limit, setLimit] = useState<CoinLimit>('100')
+  const [isCustomLimit, setIsCustomLimit] = useState(false)
+  const [customLimitInput, setCustomLimitInput] = useState('')
   const [loading, setLoading] = useState(true)
   const [lastUpdate, setLastUpdate] = useState<string>('')
   const [status, setStatus] = useState<'ok' | 'warning' | 'error'>('ok')
@@ -396,23 +398,92 @@ export function Heatmap() {
                 <SelectItem value="15m" className="text-white focus:bg-slate-700 focus:text-white">15 min</SelectItem>
                 <SelectItem value="1h" className="text-white focus:bg-slate-700 focus:text-white">1 hour</SelectItem>
                 <SelectItem value="4h" className="text-white focus:bg-slate-700 focus:text-white">4 hour</SelectItem>
+                <SelectItem value="12h" className="text-white focus:bg-slate-700 focus:text-white">12 hour</SelectItem>
                 <SelectItem value="1d" className="text-white focus:bg-slate-700 focus:text-white">1 day</SelectItem>
+                <SelectItem value="1w" className="text-white focus:bg-slate-700 focus:text-white">1 week</SelectItem>
               </SelectContent>
             </Select>
 
             {/* Limit Select */}
-            <Select value={limit} onValueChange={(v) => setLimit(v as CoinLimit)}>
-              <SelectTrigger className="w-[155px] bg-slate-800 border-slate-700 text-white">
-                <Coins className="h-4 w-4 mr-2 text-amber-400 flex-shrink-0" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                <SelectItem value="50" className="text-white focus:bg-slate-700 focus:text-white">50 coins</SelectItem>
-                <SelectItem value="100" className="text-white focus:bg-slate-700 focus:text-white">100 coins</SelectItem>
-                <SelectItem value="150" className="text-white focus:bg-slate-700 focus:text-white">150 coins</SelectItem>
-                <SelectItem value="200" className="text-white focus:bg-slate-700 focus:text-white">200 coins</SelectItem>
-              </SelectContent>
-            </Select>
+            {isCustomLimit ? (
+              <div className="flex items-center gap-1">
+                <div className="flex items-center bg-slate-800 border border-slate-700 rounded-md px-3 h-10">
+                  <Coins className="h-4 w-4 mr-2 text-amber-400 flex-shrink-0" />
+                  <input
+                    type="number"
+                    min="1"
+                    value={customLimitInput}
+                    onChange={(e) => setCustomLimitInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const val = parseInt(customLimitInput)
+                        if (val >= 1) {
+                          setLimit(customLimitInput)
+                          setIsCustomLimit(false)
+                        }
+                      } else if (e.key === 'Escape') {
+                        setIsCustomLimit(false)
+                        setCustomLimitInput('')
+                      }
+                    }}
+                    placeholder="coins"
+                    className="w-16 bg-transparent text-white text-sm outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    autoFocus
+                  />
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-10 px-2 text-emerald-400 hover:text-emerald-300 hover:bg-slate-700"
+                  onClick={() => {
+                    const val = parseInt(customLimitInput)
+                    if (val >= 1) {
+                      setLimit(customLimitInput)
+                      setIsCustomLimit(false)
+                    }
+                  }}
+                >
+                  OK
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-10 px-2 text-slate-400 hover:text-slate-300 hover:bg-slate-700"
+                  onClick={() => {
+                    setIsCustomLimit(false)
+                    setCustomLimitInput('')
+                  }}
+                >
+                  X
+                </Button>
+              </div>
+            ) : (
+              <Select
+                value={['50', '100', '150', '200'].includes(limit) ? limit : 'custom'}
+                onValueChange={(v) => {
+                  if (v === 'custom') {
+                    setIsCustomLimit(true)
+                    setCustomLimitInput(limit)
+                  } else {
+                    setLimit(v as CoinLimit)
+                  }
+                }}
+              >
+                <SelectTrigger className="w-[155px] bg-slate-800 border-slate-700 text-white">
+                  <Coins className="h-4 w-4 mr-2 text-amber-400 flex-shrink-0" />
+                  <SelectValue>
+                    {['50', '100', '150', '200'].includes(limit) ? `${limit} coins` : `${limit} coins`}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                  <SelectItem value="50" className="text-white focus:bg-slate-700 focus:text-white">50 coins</SelectItem>
+                  <SelectItem value="100" className="text-white focus:bg-slate-700 focus:text-white">100 coins</SelectItem>
+                  <SelectItem value="150" className="text-white focus:bg-slate-700 focus:text-white">150 coins</SelectItem>
+                  <SelectItem value="200" className="text-white focus:bg-slate-700 focus:text-white">200 coins</SelectItem>
+                  <SelectItem value="custom" className="text-amber-400 focus:bg-slate-700 focus:text-amber-300">Custom...</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
 
             {/* Refresh Button */}
             <Button
@@ -749,7 +820,7 @@ export function Heatmap() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredAndSortedData.slice(0, 50).map((coin, idx) => (
+                        {filteredAndSortedData.slice(0, parseInt(limit)).map((coin, idx) => (
                           <motion.tr
                             key={coin.symbol}
                             initial={{ opacity: 0, x: -10 }}

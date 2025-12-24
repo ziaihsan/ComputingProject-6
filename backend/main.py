@@ -39,7 +39,7 @@ async def api_root():
 
 @app.get("/api/heatmap")
 async def get_heatmap(
-    limit: int = Query(default=100, le=250),
+    limit: int = Query(default=100, ge=1),
     timeframe: str = Query(default="4h")
 ):
     """Get heatmap data for scatter plot visualization using Binance data"""
