@@ -29,7 +29,6 @@ Frontend will be served automatically at http://localhost:8000
 - Real-time data from Binance API
 - AI Trading Chatbot (powered by Google Gemini)
 - AI Fundamental Analysis - Click any coin to get AI-powered fundamental analysis
-- Markdown rendering for AI responses (proper formatting of bold, italic, headers, etc.)
 
 ## AI Chatbot Setup
 1. Click the **"AI Chat"** button (purple) in the header

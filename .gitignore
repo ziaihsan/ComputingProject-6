@@ -1,11 +1,10 @@
 __pycache__/
 *.pyc
 .DS_Store
+*.db
 
 knowledge/
 /.playwright-mcp
-
-*.db
 GEMINI.md
 
 # Environment variables (API keys) & config
