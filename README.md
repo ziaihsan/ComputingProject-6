@@ -1,6 +1,10 @@
-# Crypto Dual Heatmap (EMA + RSI Multi-Layer)
+# Crypto RSI Heatmap (EMA + RSI Multi-Layer)
 
-## Quick Start
+Real-time cryptocurrency market analysis with AI-powered insights.
+
+**Live Demo:** https://computingproject-6.onrender.com
+
+## Quick Start (Run Locally)
 
 ```bash
 # 1. Install backend dependencies
@@ -14,11 +18,6 @@ npm run build
 
 # 4. Run (from project root)
 python3 run.py
-```
-
-Or install backend manually:
-```bash
-pip3 install fastapi uvicorn pandas numpy aiohttp websockets google-generativeai
 ```
 
 Frontend will be served automatically at http://localhost:8000

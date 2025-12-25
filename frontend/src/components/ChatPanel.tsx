@@ -97,6 +97,11 @@ export function ChatPanel({ isOpen, onClose, timeframe }: ChatPanelProps) {
           timestamp: new Date(),
         }
         setMessages(prev => [...prev, errorMessage])
+
+        // Auto-open settings if API key not configured
+        if (data.error === 'service_unavailable') {
+          setTimeout(() => setShowSettings(true), 500)
+        }
       }
     } catch (err) {
       setError('Unable to connect to server')

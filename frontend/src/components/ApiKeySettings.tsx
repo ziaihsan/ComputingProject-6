@@ -226,19 +226,36 @@ export function ApiKeySettings({ isOpen, onClose, onApiKeyChanged }: ApiKeySetti
                     <div className="flex items-center gap-2 text-emerald-400 mb-1">
                       <CheckCircle className="h-4 w-4" />
                       <span className="font-medium text-sm">Configured</span>
+                      <span className={cn(
+                        "text-[10px] px-1.5 py-0.5 rounded ml-auto",
+                        status.source === 'env'
+                          ? "bg-blue-900/50 text-blue-400"
+                          : "bg-slate-700 text-slate-400"
+                      )}>
+                        {status.source === 'env' ? 'ENV VAR' : 'FILE'}
+                      </span>
                     </div>
                     <p className="text-xs text-slate-400">
                       Key: <code className="bg-slate-800 px-1.5 py-0.5 rounded">{status.masked_key}</code>
                     </p>
+                    {status.source === 'env' && (
+                      <p className="text-xs text-blue-400 mt-2">
+                        Set via environment variable. To remove, unset GEMINI_API_KEY from your terminal/system.
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div className="bg-amber-900/20 border border-amber-800/50 rounded-lg p-3">
                     <div className="flex items-center gap-2 text-amber-400 mb-1">
                       <AlertCircle className="h-4 w-4" />
-                      <span className="font-medium text-sm">Not Configured</span>
+                      <span className="font-medium text-sm">
+                        {status?.source === 'disabled' ? 'Disabled' : 'Not Configured'}
+                      </span>
                     </div>
                     <p className="text-xs text-slate-400">
-                      Enter Gemini API key to enable AI chatbot.
+                      {status?.source === 'disabled'
+                        ? 'API key was deleted. Enter a new key to re-enable AI chatbot.'
+                        : 'Enter Gemini API key to enable AI chatbot.'}
                     </p>
                   </div>
                 )}

@@ -21,7 +21,8 @@ from indicators import (
 )
 from gemini_service import (
     GeminiService, get_api_key, save_api_key, validate_api_key,
-    get_available_models, get_selected_model, save_selected_model
+    get_available_models, get_selected_model, save_selected_model,
+    get_api_key_source, disable_api_key
 )
 
 
@@ -280,17 +281,21 @@ async def health():
 async def get_apikey_status():
     """Check API key status (without exposing the key)"""
     api_key = get_api_key()
+    source = get_api_key_source()
+
     if api_key:
         # Mask API key, only show last 4 characters
         masked = "*" * (len(api_key) - 4) + api_key[-4:]
         return {
             "configured": True,
             "masked_key": masked,
+            "source": source,
             "service_ready": gemini_service is not None and gemini_service.is_configured()
         }
     return {
         "configured": False,
         "masked_key": None,
+        "source": source,  # Return source even when not configured (for 'disabled' state)
         "service_ready": False
     }
 
@@ -351,16 +356,18 @@ async def set_apikey(request: ApiKeyRequest):
 
 @app.delete("/api/settings/apikey")
 async def delete_apikey():
-    """Delete API key"""
+    """Delete API key and disable all sources"""
     global gemini_service
-    from pathlib import Path
 
-    api_key_file = Path(__file__).parent / ".api_key"
     try:
-        if api_key_file.exists():
-            api_key_file.unlink()
-        gemini_service = GeminiService()
-        return {"success": True, "message": "API key deleted successfully"}
+        if disable_api_key():
+            gemini_service = GeminiService()
+            return {"success": True, "message": "API key deleted successfully"}
+        else:
+            return JSONResponse(
+                content={"success": False, "error": "Failed to delete API key"},
+                status_code=500
+            )
     except Exception as e:
         return JSONResponse(
             content={"success": False, "error": str(e)},

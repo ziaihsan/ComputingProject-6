@@ -1093,6 +1093,9 @@ export function Heatmap() {
         onClose={() => setIsFundamentalOpen(false)}
         symbol={selectedCoin?.symbol || ''}
         timeframe={timeframe}
+        onOpenSettings={() => {
+          setIsChatOpen(true)
+        }}
       />
     </div>
   )

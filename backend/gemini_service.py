@@ -12,6 +12,7 @@ import os
 # Path untuk menyimpan konfigurasi
 CONFIG_DIR = Path(__file__).parent
 API_KEY_FILE = CONFIG_DIR / ".api_key"
+API_KEY_DISABLED_FILE = CONFIG_DIR / ".api_key_disabled"
 MODEL_CONFIG_FILE = CONFIG_DIR / ".model_config"
 
 # Available models with info
@@ -47,22 +48,75 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 
 
 def get_api_key() -> Optional[str]:
-    """Read API key from environment variable or file"""
-    # 1. Check environment variable first (for production)
-    env_key = os.environ.get('GEMINI_API_KEY')
-    if env_key:
-        return env_key
-    # 2. Fallback to file (for local development)
+    """Read API key from file or environment variable
+
+    Priority: disabled flag > file (UI) > environment variable
+    This ensures user-saved keys via UI take precedence over env vars
+    """
+    # 0. Check if API key is disabled (user explicitly deleted)
+    if API_KEY_DISABLED_FILE.exists():
+        return None
+    # 1. Check file first (user explicitly saved via UI)
     if API_KEY_FILE.exists():
         key = API_KEY_FILE.read_text().strip()
         if key:
             return key
+    # 2. Fallback to environment variable (for production/Render)
+    env_key = os.environ.get('GEMINI_API_KEY')
+    if env_key:
+        return env_key
     return None
 
 
-def save_api_key(api_key: str) -> bool:
-    """Save API key to file"""
+def get_api_key_source() -> Optional[str]:
+    """Return source of API key: 'file', 'env', 'disabled', or None
+
+    Priority matches get_api_key(): file > env
+    """
+    if API_KEY_DISABLED_FILE.exists():
+        return 'disabled'
+    if API_KEY_FILE.exists():
+        key = API_KEY_FILE.read_text().strip()
+        if key:
+            return 'file'
+    if os.environ.get('GEMINI_API_KEY'):
+        return 'env'
+    return None
+
+
+def is_api_key_disabled() -> bool:
+    """Check if API key is disabled"""
+    return API_KEY_DISABLED_FILE.exists()
+
+
+def disable_api_key() -> bool:
+    """Create disabled flag to block all API key sources"""
     try:
+        API_KEY_DISABLED_FILE.write_text("disabled")
+        # Also remove the file-based key if exists
+        if API_KEY_FILE.exists():
+            API_KEY_FILE.unlink()
+        return True
+    except Exception:
+        return False
+
+
+def enable_api_key() -> bool:
+    """Remove disabled flag"""
+    try:
+        if API_KEY_DISABLED_FILE.exists():
+            API_KEY_DISABLED_FILE.unlink()
+        return True
+    except Exception:
+        return False
+
+
+def save_api_key(api_key: str) -> bool:
+    """Save API key to file and remove disabled flag"""
+    try:
+        # Remove disabled flag if exists
+        if API_KEY_DISABLED_FILE.exists():
+            API_KEY_DISABLED_FILE.unlink()
         API_KEY_FILE.write_text(api_key.strip())
         return True
     except Exception:
@@ -230,12 +284,14 @@ PENJELASAN SIGNAL LAYER:
 - Layer 1: Hanya EMA cross + retest
 
 PANDUAN RESPON:
-1. Jawab dengan bahasa Indonesia yang jelas dan ringkas
-2. Selalu sebutkan data spesifik (symbol, RSI, layer) saat memberikan analisis
-3. Berikan insight yang actionable berdasarkan data
-4. PENTING: Selalu ingatkan bahwa ini bukan financial advice
+1. IMPORTANT: Detect the language of the user's question and respond in the SAME language
+   - If user asks in English, answer in English
+   - If user asks in Indonesian, answer in Indonesian (Bahasa Indonesia)
+2. Always mention specific data (symbol, RSI, layer) when providing analysis
+3. Provide actionable insights based on the data
+4. IMPORTANT: Always remind that this is NOT financial advice
 
-Jawab pertanyaan user berdasarkan data di atas."""
+Answer the user's question based on the data above."""
 
         return system_prompt
 

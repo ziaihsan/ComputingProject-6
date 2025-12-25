@@ -11,4 +11,5 @@ GEMINI.md
 .env
 backend/.env
 backend/.api_key
+backend/.api_key_disabled
 backend/.model_config

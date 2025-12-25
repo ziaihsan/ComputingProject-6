@@ -59,6 +59,7 @@ export interface ChatResponse {
 export interface ApiKeyStatus {
   configured: boolean
   masked_key: string | null
+  source: 'env' | 'file' | 'disabled' | null
   service_ready: boolean
 }
 

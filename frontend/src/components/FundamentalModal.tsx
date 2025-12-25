@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Loader2, AlertCircle, TrendingUp, RefreshCw } from 'lucide-react'
+import { X, Loader2, AlertCircle, TrendingUp, RefreshCw, Settings } from 'lucide-react'
 import { Button } from './ui/button'
 import { MarkdownRenderer } from './MarkdownRenderer'
 
@@ -12,12 +12,14 @@ interface FundamentalModalProps {
   onClose: () => void
   symbol: string
   timeframe: string
+  onOpenSettings?: () => void
 }
 
-export function FundamentalModal({ isOpen, onClose, symbol, timeframe }: FundamentalModalProps) {
+export function FundamentalModal({ isOpen, onClose, symbol, timeframe, onOpenSettings }: FundamentalModalProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [analysis, setAnalysis] = useState<string>('')
   const [error, setError] = useState<string | null>(null)
+  const [isApiKeyError, setIsApiKeyError] = useState(false)
 
   useEffect(() => {
     if (isOpen && symbol) {
@@ -29,6 +31,7 @@ export function FundamentalModal({ isOpen, onClose, symbol, timeframe }: Fundame
     setIsLoading(true)
     setError(null)
     setAnalysis('')
+    setIsApiKeyError(false)
 
     try {
       const response = await fetch(`${API_BASE}/api/fundamental`, {
@@ -42,7 +45,14 @@ export function FundamentalModal({ isOpen, onClose, symbol, timeframe }: Fundame
       if (data.success) {
         setAnalysis(data.response)
       } else {
-        setError(data.response || data.error || 'Failed to fetch analysis')
+        const errorMsg = data.response || data.error || 'Failed to fetch analysis'
+        setError(errorMsg)
+
+        // Check if error is related to API key
+        const isApiKeyRelated = errorMsg.toLowerCase().includes('api key') ||
+                               data.error === 'not_configured' ||
+                               data.error === 'service_unavailable'
+        setIsApiKeyError(isApiKeyRelated)
       }
     } catch {
       setError('Unable to connect to server. Make sure the backend is running.')
@@ -116,13 +126,27 @@ export function FundamentalModal({ isOpen, onClose, symbol, timeframe }: Fundame
                     <AlertCircle className="h-6 w-6 text-red-400" />
                   </div>
                   <p className="text-red-400 text-center mb-4">{error}</p>
-                  <Button
-                    onClick={fetchAnalysis}
-                    className="bg-slate-700 hover:bg-slate-600 text-white"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Try Again
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={fetchAnalysis}
+                      className="bg-slate-700 hover:bg-slate-600 text-white"
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Try Again
+                    </Button>
+                    {isApiKeyError && onOpenSettings && (
+                      <Button
+                        onClick={() => {
+                          onOpenSettings()
+                          onClose()
+                        }}
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                      >
+                        <Settings className="h-4 w-4 mr-2" />
+                        Open Settings
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ) : analysis ? (
                 <MarkdownRenderer content={analysis} />
