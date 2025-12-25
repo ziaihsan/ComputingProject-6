@@ -13,6 +13,7 @@ import { Badge } from './ui/badge'
 import { cn, formatPrice } from '@/lib/utils'
 import { ChatPanel } from './ChatPanel'
 import { FundamentalModal } from './FundamentalModal'
+import { ApiKeySettings } from './ApiKeySettings'
 import type { CoinSignal, Direction, Timeframe, CoinLimit, HeatmapResponse } from '@/types'
 
 const API_BASE = ''
@@ -77,6 +78,7 @@ export function Heatmap() {
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [selectedCoin, setSelectedCoin] = useState<CoinSignal | null>(null)
   const [isFundamentalOpen, setIsFundamentalOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1095,7 +1097,14 @@ export function Heatmap() {
         timeframe={timeframe}
         onOpenSettings={() => {
           setIsChatOpen(true)
+          setIsSettingsOpen(true)
         }}
+      />
+
+      {/* API Key Settings Modal (standalone) */}
+      <ApiKeySettings
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
     </div>
   )

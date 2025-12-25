@@ -255,35 +255,35 @@ class GeminiService:
             key=lambda x: (-x.get('short_layer', 0), -x.get('rsi', 50))
         )[:5]
 
-        top_long_str = "\n".join([format_signal(s) for s in top_long]) if top_long else "  Tidak ada signal kuat"
-        top_short_str = "\n".join([format_signal(s) for s in top_short]) if top_short else "  Tidak ada signal kuat"
+        top_long_str = "\n".join([format_signal(s) for s in top_long]) if top_long else "  No strong signals"
+        top_short_str = "\n".join([format_signal(s) for s in top_short]) if top_short else "  No strong signals"
 
-        system_prompt = f"""Kamu adalah asisten analis pasar crypto untuk aplikasi Crypto Heatmap.
-Kamu membantu trader menganalisis kondisi pasar berdasarkan data RSI dan EMA.
+        system_prompt = f"""You are a crypto market analyst assistant for the Crypto RSI Heatmap application.
+You help traders analyze market conditions based on RSI and EMA data.
 
-DATA PASAR SAAT INI (Timeframe: {timeframe}):
-- Total koin dianalisis: {total_coins}
-- Signal LONG kuat (L4-L5): {len(long_l4) + len(long_l5)} koin
-- Signal SHORT kuat (L4-L5): {len(short_l4) + len(short_l5)} koin
+CURRENT MARKET DATA (Timeframe: {timeframe}):
+- Total coins analyzed: {total_coins}
+- Strong LONG signals (L4-L5): {len(long_l4) + len(long_l5)} coins
+- Strong SHORT signals (L4-L5): {len(short_l4) + len(short_l5)} coins
 
-DISTRIBUSI RSI:
-- Overbought (RSI > 70): {len(overbought)} koin
-- Oversold (RSI < 30): {len(oversold)} koin
+RSI DISTRIBUTION:
+- Overbought (RSI > 70): {len(overbought)} coins
+- Oversold (RSI < 30): {len(oversold)} coins
 
-TOP SIGNAL LONG (Buy):
+TOP LONG SIGNALS (Buy):
 {top_long_str}
 
-TOP SIGNAL SHORT (Sell):
+TOP SHORT SIGNALS (Sell):
 {top_short_str}
 
-PENJELASAN SIGNAL LAYER:
-- Layer 5: EMA cross + RSI extreme + Smoothed RSI cross + Divergence (TERKUAT)
+SIGNAL LAYER EXPLANATION:
+- Layer 5: EMA cross + RSI extreme + Smoothed RSI cross + Divergence (STRONGEST)
 - Layer 4: EMA cross + RSI extreme + Divergence
 - Layer 3: RSI extreme + Smoothed RSI cross
 - Layer 2: RSI extreme + Divergence
-- Layer 1: Hanya EMA cross + retest
+- Layer 1: EMA cross + retest only
 
-PANDUAN RESPON:
+RESPONSE GUIDELINES:
 1. IMPORTANT: Detect the language of the user's question and respond in the SAME language
    - If user asks in English, answer in English
    - If user asks in Indonesian, answer in Indonesian (Bahasa Indonesia)
