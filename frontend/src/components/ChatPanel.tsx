@@ -7,7 +7,7 @@ import { ApiKeySettings } from './ApiKeySettings'
 import { MarkdownRenderer } from './MarkdownRenderer'
 import type { ChatMessage, ChatResponse, Timeframe } from '@/types'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = ''
 
 interface ChatPanelProps {
   isOpen: boolean

@@ -15,7 +15,7 @@ import { ChatPanel } from './ChatPanel'
 import { FundamentalModal } from './FundamentalModal'
 import type { CoinSignal, Direction, Timeframe, CoinLimit, HeatmapResponse } from '@/types'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = ''
 
 // RSI Level Configuration (similar to Coinglass)
 const RSI_LEVELS = {

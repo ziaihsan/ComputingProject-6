@@ -5,7 +5,7 @@ import { X, Loader2, AlertCircle, TrendingUp, RefreshCw } from 'lucide-react'
 import { Button } from './ui/button'
 import { MarkdownRenderer } from './MarkdownRenderer'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = ''
 
 interface FundamentalModalProps {
   isOpen: boolean

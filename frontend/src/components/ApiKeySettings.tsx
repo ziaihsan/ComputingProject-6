@@ -6,7 +6,7 @@ import { Button } from './ui/button'
 import { cn } from '@/lib/utils'
 import type { ApiKeyStatus, ApiKeyResponse, ModelsResponse, ModelInfo } from '@/types'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = ''
 
 interface ApiKeySettingsProps {
   isOpen: boolean

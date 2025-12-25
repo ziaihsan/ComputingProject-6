@@ -7,6 +7,7 @@ import google.generativeai as genai
 from typing import Dict, List, Optional
 from pathlib import Path
 import json
+import os
 
 # Path untuk menyimpan konfigurasi
 CONFIG_DIR = Path(__file__).parent
@@ -46,7 +47,12 @@ DEFAULT_MODEL = "gemini-2.5-flash"
 
 
 def get_api_key() -> Optional[str]:
-    """Read API key from file"""
+    """Read API key from environment variable or file"""
+    # 1. Check environment variable first (for production)
+    env_key = os.environ.get('GEMINI_API_KEY')
+    if env_key:
+        return env_key
+    # 2. Fallback to file (for local development)
     if API_KEY_FILE.exists():
         key = API_KEY_FILE.read_text().strip()
         if key:
