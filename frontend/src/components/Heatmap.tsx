@@ -1096,7 +1096,6 @@ export function Heatmap() {
         symbol={selectedCoin?.symbol || ''}
         timeframe={timeframe}
         onOpenSettings={() => {
-          setIsChatOpen(true)
           setIsSettingsOpen(true)
         }}
       />
