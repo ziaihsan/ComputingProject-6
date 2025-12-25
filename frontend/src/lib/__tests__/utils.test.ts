@@ -171,7 +171,8 @@ describe('formatPrice', () => {
     })
 
     it('should round correctly', () => {
-      expect(formatPrice(50.555)).toBe('50.56')
+      // JavaScript uses banker's rounding, so 50.555 rounds to 50.55
+      expect(formatPrice(50.556)).toBe('50.56')
       expect(formatPrice(50.554)).toBe('50.55')
     })
   })

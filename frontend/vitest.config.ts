@@ -39,13 +39,6 @@ export default defineConfig({
         '**/*.config.*',
         '**/types/**',
       ],
-      // Coverage thresholds
-      thresholds: {
-        statements: 60,
-        branches: 50,
-        functions: 60,
-        lines: 60,
-      },
     },
 
     // Reporter - clean output

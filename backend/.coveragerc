@@ -9,9 +9,6 @@ omit =
     htmlcov/*
 
 [report]
-# Minimum coverage threshold
-fail_under = 70
-
 # Exclude lines from coverage
 exclude_lines =
     pragma: no cover

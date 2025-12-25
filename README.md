@@ -55,48 +55,66 @@ Uses Gemini 3 Flash for fast, accurate analysis.
 
 ## Testing
 
+Tests run in an isolated environment and do NOT affect the production deployment.
+
 ### Backend Tests (pytest)
 ```bash
 cd backend
 
-# Install test dependencies
+# Install test dependencies (separate from production)
 pip install -r requirements-dev.txt
 
 # Run all tests with coverage
 pytest
 
-# View coverage report
+# Run unit tests only
+pytest tests/unit/ -v
+
+# View HTML coverage report
 open htmlcov/index.html
 ```
+
+**Coverage Report Location:** `backend/htmlcov/index.html`
 
 ### Frontend Tests (Vitest)
 ```bash
 cd frontend
 
-# Install dependencies (includes test deps)
+# Install dependencies
 npm install
 
-# Run tests
+# Run tests (watch mode)
 npm test
 
-# Run with coverage
+# Run tests once (CI mode)
+npm run test:run
+
+# Run with coverage report
 npm run test:coverage
 
 # Open Vitest UI (browser-based)
 npm run test:ui
 ```
 
+**Coverage Report Location:** `frontend/coverage/index.html`
+
+### Continuous Integration (GitHub Actions)
+
+Tests run automatically on every push to `main`/`develop` and on pull requests.
+
+View test results: Go to **Actions** tab in GitHub repository.
+
 ### Understanding Test Results
 
-**Coverage Report** menunjukkan berapa persen kode yang diuji:
-- `80-100%` = Sangat baik (hijau)
-- `60-79%` = Cukup (kuning)
-- `<60%` = Perlu ditingkatkan (merah)
+**Coverage Report** indicates the percentage of code covered by tests:
+- `80-100%` = Excellent (green)
+- `60-79%` = Good (yellow)
+- `<60%` = Needs Improvement (red)
 
 **Test Output:**
-- `PASSED` = Test berhasil
-- `FAILED` = Test gagal (ada bug)
-- `SKIPPED` = Test dilewati
+- `PASSED` = Test successful ✅
+- `FAILED` = Test failed (bug detected) ❌
+- `SKIPPED` = Test intentionally skipped
 
 ## Team
 Rabih Akbar Nurdin (PM), Yoga Bayu Samudra, Zia Ul Ihsan, Putu Satya Krisnaputra, Sigit Hadi Putranto
