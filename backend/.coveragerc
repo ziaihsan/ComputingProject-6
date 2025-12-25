@@ -1,0 +1,32 @@
+[run]
+source = .
+branch = True
+omit =
+    tests/*
+    __pycache__/*
+    .venv/*
+    venv/*
+    htmlcov/*
+
+[report]
+# Minimum coverage threshold
+fail_under = 70
+
+# Exclude lines from coverage
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+    @abstractmethod
+
+# Show missing lines
+show_missing = True
+
+# Skip files with 100% coverage in summary
+skip_covered = True
+
+[html]
+directory = htmlcov
+title = Backend Test Coverage Report

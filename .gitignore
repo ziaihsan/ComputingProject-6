@@ -13,3 +13,26 @@ backend/.env
 backend/.api_key
 backend/.api_key_disabled
 backend/.model_config
+
+# ================================
+# Testing & Coverage Reports
+# ================================
+
+# Backend (pytest)
+backend/htmlcov/
+backend/.coverage
+backend/coverage.xml
+backend/.pytest_cache/
+
+# Frontend (vitest)
+frontend/coverage/
+frontend/.vitest/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db

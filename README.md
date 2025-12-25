@@ -50,7 +50,53 @@ Uses Gemini 3 Flash for fast, accurate analysis.
 - **Backend:** Python, FastAPI, Google Gemini AI
 - **Frontend:** React, TypeScript, TailwindCSS, react-markdown (for AI response formatting)
 - **Data:** Binance API
-- **Markdown Rendering:** react-markdown (safe, XSS-protected)
+- **Testing:** pytest (backend), Vitest + React Testing Library (frontend)
+- **CI/CD:** GitHub Actions
+
+## Testing
+
+### Backend Tests (pytest)
+```bash
+cd backend
+
+# Install test dependencies
+pip install -r requirements-dev.txt
+
+# Run all tests with coverage
+pytest
+
+# View coverage report
+open htmlcov/index.html
+```
+
+### Frontend Tests (Vitest)
+```bash
+cd frontend
+
+# Install dependencies (includes test deps)
+npm install
+
+# Run tests
+npm test
+
+# Run with coverage
+npm run test:coverage
+
+# Open Vitest UI (browser-based)
+npm run test:ui
+```
+
+### Understanding Test Results
+
+**Coverage Report** menunjukkan berapa persen kode yang diuji:
+- `80-100%` = Sangat baik (hijau)
+- `60-79%` = Cukup (kuning)
+- `<60%` = Perlu ditingkatkan (merah)
+
+**Test Output:**
+- `PASSED` = Test berhasil
+- `FAILED` = Test gagal (ada bug)
+- `SKIPPED` = Test dilewati
 
 ## Team
 Rabih Akbar Nurdin (PM), Yoga Bayu Samudra, Zia Ul Ihsan, Putu Satya Krisnaputra, Sigit Hadi Putranto
