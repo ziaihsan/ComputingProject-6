@@ -33,6 +33,7 @@ export default defineConfig({
       reportsDirectory: './coverage',
       exclude: [
         'node_modules/',
+        'dist/',
         'src/__tests__/',
         'src/main.tsx',
         '**/*.d.ts',
