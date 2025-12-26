@@ -64,8 +64,11 @@ cd backend
 # Install test dependencies (separate from production)
 pip install -r requirements-dev.txt
 
-# Run all tests with coverage
-pytest
+# Run all tests with coverage (terminal output)
+pytest --cov
+
+# Run all tests with HTML coverage report
+pytest --cov --cov-report=html
 
 # Run unit tests only
 pytest tests/unit/ -v
