@@ -77,7 +77,7 @@ Object.defineProperty(window, 'scrollTo', {
 
 // Mock requestAnimationFrame for animation-related code
 global.requestAnimationFrame = vi.fn((callback) => {
-  return setTimeout(callback, 0)
+  return setTimeout(callback, 0) as unknown as number
 })
 
 global.cancelAnimationFrame = vi.fn((id) => {
