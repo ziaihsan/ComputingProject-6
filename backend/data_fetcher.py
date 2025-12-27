@@ -34,7 +34,24 @@ class CryptoDataFetcher:
             await self.session.close()
     
     async def get_top_symbols(self, limit: int = 100) -> List[str]:
-        """Get top trading pairs by volume"""
+        """Get top trading pairs by volume that are actively TRADING"""
+        # 1. Get valid trading symbols
+        info_url = f"{self.BINANCE_API}/exchangeInfo"
+        valid_symbols = set()
+        
+        try:
+            async with self.session.get(info_url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    for s in data['symbols']:
+                        if s['status'] == 'TRADING' and s['symbol'].endswith('USDT'):
+                            valid_symbols.add(s['symbol'])
+        except Exception as e:
+            print(f"Error fetching exchange info: {e}")
+            # Fallback to loose filtering if exchange info fails
+            pass
+            
+        # 2. Get ticker data
         url = f"{self.BINANCE_API}/ticker/24hr"
         
         async with self.session.get(url) as response:
@@ -44,12 +61,15 @@ class CryptoDataFetcher:
             data = await response.json()
             
             # Filter USDT pairs and sort by volume
-            usdt_pairs = [
-                d for d in data 
-                if d['symbol'].endswith('USDT') 
-                and not d['symbol'].startswith('USDC')
-                and float(d['quoteVolume']) > 0
-            ]
+            usdt_pairs = []
+            for d in data:
+                sym = d['symbol']
+                # Check strict filter if available, else just USDT check
+                if valid_symbols and sym not in valid_symbols:
+                    continue
+                    
+                if sym.endswith('USDT') and not sym.startswith('USDC') and float(d['quoteVolume']) > 0:
+                    usdt_pairs.append(d)
             
             sorted_pairs = sorted(
                 usdt_pairs, 

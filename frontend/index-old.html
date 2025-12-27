@@ -458,7 +458,7 @@
                     document.getElementById('lastUpdate').style.color = '';
                     console.log(`[fetchData] Success! Loaded ${currentData.length} coins`);
                 } else if (result.error && result.error.includes('429')) {
-                    console.warn(`[fetchData] Rate limited by CoinGecko, keeping old data`);
+                    console.warn(`[fetchData] Rate limited by Binance, keeping old data`);
                     document.getElementById('lastUpdate').textContent = 'Rate limited - wait a moment';
                     document.getElementById('lastUpdate').style.color = '#f59e0b';
                 } else {

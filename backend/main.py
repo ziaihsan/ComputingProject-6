@@ -17,6 +17,7 @@ from indicators import (
     calculate_ema,
     calculate_rsi,
     calculate_smoothed_rsi,
+    calculate_atr,
     detect_signal_layer
 )
 from gemini_service import (
@@ -112,9 +113,9 @@ async def get_heatmap(
                 })
 
             # 2. Fetch candles for all symbols concurrently
-            # Need enough data for indicators (e.g. 100 candles)
+            # Need enough data for indicators (e.g. 500 candles for better convergence)
             tasks = [
-                fetcher.get_klines(symbol, interval=timeframe, limit=100) 
+                fetcher.get_klines(symbol, interval=timeframe, limit=500) 
                 for symbol in top_symbols
             ]
             all_klines = await asyncio.gather(*tasks)
@@ -126,8 +127,10 @@ async def get_heatmap(
             if not klines or len(klines) < 50:
                 continue
                 
-            # Extract close prices
+            # Extract prices
             close_prices = [k['close'] for k in klines]
+            high_prices = [k['high'] for k in klines]
+            low_prices = [k['low'] for k in klines]
             current_price = close_prices[-1]
             
             # Extract 24h change (approximate from candles or we need a separate call, 
@@ -155,6 +158,7 @@ async def get_heatmap(
             rsi_smoothed_series = calculate_smoothed_rsi(close_prices)
             ema_13_series = calculate_ema(close_prices, 13)
             ema_21_series = calculate_ema(close_prices, 21)
+            atr_series = calculate_atr(high_prices, low_prices, close_prices)
             
             # Get latest values
             rsi = rsi_series[-1]
@@ -172,11 +176,14 @@ async def get_heatmap(
             price_change_fake_24h = ((current_price - klines[0]['close']) / klines[0]['close'] * 100) # Change over loaded period
             
             layer_info = detect_signal_layer(
+                high_prices,
+                low_prices,
                 close_prices,
                 ema_13_series,
                 ema_21_series,
                 rsi_series,
-                rsi_smoothed_series
+                rsi_smoothed_series,
+                atr_series
             )
             
             # We also need Market Cap. Binance API doesn't provide MCAP in klines/ticker easily without auth/extra endpoints sometimes.

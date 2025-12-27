@@ -17,7 +17,7 @@ REQUIREMENTS_FILE = os.path.join(BACKEND_DIR, 'requirements.txt')
 
 def install_dependencies():
     """Install required packages if missing"""
-    required = ['fastapi', 'uvicorn', 'aiohttp']
+    required = ['fastapi', 'uvicorn', 'aiohttp', 'pandas', 'numpy']
     missing = []
     
     for pkg in required:

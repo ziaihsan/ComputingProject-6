@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Tuple, Optional, Union
 
 def calculate_ema(prices: List[float], period: int) -> List[float]:
     """Calculate Exponential Moving Average"""
@@ -14,54 +14,31 @@ def calculate_ema(prices: List[float], period: int) -> List[float]:
 def calculate_rma(series: pd.Series, period: int) -> pd.Series:
     """
     Calculate RMA (Relative Moving Average) / Wilder's Smoothing / SMMA
-    This is the same as TradingView's ta.rma()
-    Formula: RMA[i] = (RMA[i-1] * (period - 1) + value[i]) / period
-    Equivalent to EMA with alpha = 1/period
     """
-    # Initialize with SMA for first value, then use RMA formula
     alpha = 1.0 / period
     return series.ewm(alpha=alpha, adjust=False).mean()
-
 
 def calculate_rsi(prices: List[float], period: int = 14) -> List[float]:
     """
     Calculate RSI (Relative Strength Index) using Wilder's Smoothing (RMA)
-    Matches TradingView's RSI implementation exactly.
-
-    Formula:
-    - change = close - close[1]
-    - up = rma(max(change, 0), period)
-    - down = rma(-min(change, 0), period)
-    - rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up/down))
     """
     if len(prices) < period + 1:
         return [np.nan] * len(prices)
 
     df = pd.DataFrame({'close': prices})
-
-    # Calculate price change
     change = df['close'].diff()
-
-    # Separate gains and losses
     gain = change.where(change > 0, 0.0)
     loss = (-change).where(change < 0, 0.0)
 
-    # Use RMA (Wilder's Smoothing) instead of SMA - this matches TradingView
     avg_gain = calculate_rma(gain, period)
     avg_loss = calculate_rma(loss, period)
 
-    # Calculate RS and RSI with proper edge case handling
-    # When avg_loss == 0: RSI = 100 (no losses)
-    # When avg_gain == 0: RSI = 0 (no gains)
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
 
-    # Handle edge cases explicitly (matching TradingView behavior)
-    rsi = rsi.where(avg_loss != 0, 100.0)  # No losses = RSI 100
-    rsi = rsi.where(avg_gain != 0, rsi)    # Keep value if gains exist
-    rsi = rsi.where((avg_gain != 0) | (avg_loss != 0), 50.0)  # Both 0 = neutral
-
-    # Set first 'period' values to NaN (not enough data)
+    rsi = rsi.where(avg_loss != 0, 100.0)
+    rsi = rsi.where(avg_gain != 0, rsi)
+    rsi = rsi.where((avg_gain != 0) | (avg_loss != 0), 50.0)
     rsi.iloc[:period] = np.nan
 
     return rsi.tolist()
@@ -69,202 +46,136 @@ def calculate_rsi(prices: List[float], period: int = 14) -> List[float]:
 def calculate_smoothed_rsi(prices: List[float], rsi_period: int = 14, smooth_period: int = 9) -> List[float]:
     """
     Calculate Smoothed RSI (RSI with EMA smoothing)
-    Matches TradingView's RSI with MA smoothing enabled.
-
-    Parameters:
-    - rsi_period: RSI calculation period (default: 14)
-    - smooth_period: EMA smoothing period applied to RSI (default: 9)
-
-    The smoothing uses standard EMA formula: alpha = 2 / (span + 1)
-    This matches TradingView's ta.ema() function.
     """
     rsi_values = calculate_rsi(prices, rsi_period)
-
     df = pd.DataFrame({'rsi': rsi_values})
-
-    # Apply EMA smoothing to RSI values
-    # ewm(span=period) uses alpha = 2/(period+1), matching TradingView's ta.ema()
     smoothed = df['rsi'].ewm(span=smooth_period, adjust=False).mean()
-
     return smoothed.tolist()
 
-def find_peaks_troughs(series: pd.Series, order: int = 3) -> Tuple[List[int], List[int]]:
-    """Find indices of peaks and troughs"""
-    peaks = []
-    troughs = []
+def calculate_atr(high: List[float], low: List[float], close: List[float], period: int = 14) -> List[float]:
+    """Calculate ATR (Average True Range) using RMA"""
+    if len(close) < period:
+        return [np.nan] * len(close)
     
-    # Simple check for local extrema
-    for i in range(order, len(series) - order):
-        current = series.iloc[i]
-        if pd.isna(current):
-            continue
-            
-        # Check for Peak
-        is_peak = True
-        for j in range(1, order + 1):
-            if series.iloc[i-j] > current or series.iloc[i+j] > current:
-                is_peak = False
-                break
-        if is_peak:
-            peaks.append(i)
-            
-        # Check for Trough
-        is_trough = True
-        for j in range(1, order + 1):
-            if series.iloc[i-j] < current or series.iloc[i+j] < current:
-                is_trough = False
-                break
-        if is_trough:
-            troughs.append(i)
-            
-    return peaks, troughs
+    df = pd.DataFrame({'high': high, 'low': low, 'close': close})
+    df['prev_close'] = df['close'].shift(1)
+    
+    # TR = max(high-low, abs(high-prev_close), abs(low-prev_close))
+    df['tr0'] = df['high'] - df['low']
+    df['tr1'] = (df['high'] - df['prev_close']).abs()
+    df['tr2'] = (df['low'] - df['prev_close']).abs()
+    df['tr'] = df[['tr0', 'tr1', 'tr2']].max(axis=1)
+    
+    # ATR = RMA(TR)
+    atr = calculate_rma(df['tr'], period)
+    return atr.tolist()
 
-def detect_divergence(
-    prices: List[float], 
-    rsi_values: List[float], 
-    lookback: int = 30
-) -> Dict[str, bool]:
+def check_divergence(
+    high: List[float],
+    low: List[float],
+    close: List[float],
+    rsi: List[float],
+    lookback_left: int = 5,
+    lookback_right: int = 5,
+    range_lower: int = 5,
+    range_upper: int = 60
+) -> Optional[str]:
     """
-    Detect Regular and Hidden Bullish/Bearish Divergences
-    Returns: {
-        'bullish_regular': bool,
-        'bullish_hidden': bool,
-        'bearish_regular': bool,
-        'bearish_hidden': bool
-    }
+    Checks for Regular Bullish/Bearish Divergence based on Pivot logic.
+    Implements logic from newCompro/src/indicators.py.
     """
-    result = {
-        'bullish_regular': False,
-        'bullish_hidden': False, # Continuation
-        'bearish_regular': False,
-        'bearish_hidden': False  # Continuation
-    }
+    # Create DF-like structure for easy indexing (simulating what newCompro does)
+    # We assume inputs are lists/arrays of same length
+    length = len(close)
+    if length < range_upper + lookback_left + lookback_right + 5:
+        return None
     
-    if len(prices) < lookback:
-        return result
-        
-    price_s = pd.Series(prices[-lookback:])
-    rsi_s = pd.Series(rsi_values[-lookback:])
+    # Pivot logic looks at `pivot_idx` which is `lookback_right` candles ago from the END.
+    # We are checking if the pivot is confirmed NOW (at the end of the series).
+    pivot_idx = length - 1 - lookback_right
     
-    # Re-index to be regular 0..len-1 for easier comparison
-    price_s = price_s.reset_index(drop=True)
-    rsi_s = rsi_s.reset_index(drop=True)
-    
-    peaks, troughs = find_peaks_troughs(rsi_s, order=2)
-    
-    # Need at least 2 troughs for bullish divergence
-    if len(troughs) >= 2:
-        last_t_idx = troughs[-1]
-        prev_t_idx = troughs[-2]
-        
-        # Ensure the last trough is recent (within last 5 candles)
-        if last_t_idx >= len(rsi_s) - 5:
-            # Price at troughs
-            p_last = price_s.iloc[last_t_idx]
-            p_prev = price_s.iloc[prev_t_idx]
-            
-            # RSI at troughs
-            r_last = rsi_s.iloc[last_t_idx]
-            r_prev = rsi_s.iloc[prev_t_idx]
-            
-            # Regular Bullish: Price Lower Low, RSI Higher Low
-            if p_last < p_prev and r_last > r_prev:
-                result['bullish_regular'] = True
-                
-            # Hidden Bullish: Price Higher Low, RSI Lower Low
-            if p_last > p_prev and r_last < r_prev:
-                result['bullish_hidden'] = True
+    if pivot_idx < range_upper:
+        return None
 
-    # Need at least 2 peaks for bearish divergence
-    if len(peaks) >= 2:
-        last_p_idx = peaks[-1]
-        prev_p_idx = peaks[-2]
-        
-        # Ensure the last peak is recent
-        if last_p_idx >= len(rsi_s) - 5:
-            p_last = price_s.iloc[last_p_idx]
-            p_prev = price_s.iloc[prev_p_idx]
-            
-            r_last = rsi_s.iloc[last_p_idx]
-            r_prev = rsi_s.iloc[prev_p_idx]
-            
-            # Regular Bearish: Price Higher High, RSI Lower High
-            if p_last > p_prev and r_last < r_prev:
-                result['bearish_regular'] = True
-                
-            # Hidden Bearish: Price Lower High, RSI Higher High
-            if p_last < p_prev and r_last > r_prev:
-                result['bearish_hidden'] = True
-                
-    return result
+    # Helper functions (using list indexing)
+    def is_pivot_low(arr, i, left, right):
+        val = arr[i]
+        # Check left
+        for k in range(1, left + 1):
+            if i - k < 0: return False
+            if arr[i - k] <= val: return False
+        # Check right
+        for k in range(1, right + 1):
+            if i + k >= len(arr): return False
+            if arr[i + k] <= val: return False
+        return True
 
-def check_ema_cross_retest(
-    prices: List[float], 
-    ema13: List[float], 
-    ema21: List[float],
-    lookback: int = 10
-) -> Dict[str, bool]:
-    """
-    Detect Cross + Retest conditions
-    Long: EMA13 crossed up EMA21 recently, price touched EMA13
-    Short: EMA13 crossed down EMA21 recently, price touched EMA13
-    """
-    res = {'long_setup': False, 'short_setup': False}
-    
-    if len(prices) < lookback:
-        return res
+    def is_pivot_high(arr, i, left, right):
+        val = arr[i]
+        # Check left
+        for k in range(1, left + 1):
+            if i - k < 0: return False
+            if arr[i - k] >= val: return False
+        # Check right
+        for k in range(1, right + 1):
+            if i + k >= len(arr): return False
+            if arr[i + k] >= val: return False
+        return True
+
+    # --- CHECK BULLISH DIVERGENCE (Pivot Low) ---
+    if is_pivot_low(rsi, pivot_idx, lookback_left, lookback_right):
+        current_pivot_rsi = rsi[pivot_idx]
+        current_pivot_low_price = low[pivot_idx]
         
-    # Analyze recent history
-    p_recent = prices[-lookback:]
-    e13_recent = ema13[-lookback:]
-    e21_recent = ema21[-lookback:]
-    
-    # Check for Cross Up
-    cross_up_idx = -1
-    for i in range(1, lookback):
-        # Crossed up: yesterday 13 < 21, today 13 > 21
-        if e13_recent[i-1] < e21_recent[i-1] and e13_recent[i] > e21_recent[i]:
-            cross_up_idx = i
-            break
-            
-    # Check for Cross Down
-    cross_down_idx = -1
-    for i in range(1, lookback):
-        if e13_recent[i-1] > e21_recent[i-1] and e13_recent[i] < e21_recent[i]:
-            cross_down_idx = i
-            break
-            
-    # Long Logic: Cross Up happened, and Price "touched" or tested EMA13 since then
-    if cross_up_idx != -1:
-        # Check if price tested EMA13 after cross
-        # Simple test: Price Low <= EMA13 * 1.001 (allowing small margin)
-        # Note: We only have close prices here usually, strictly 'Hit ke EMA 13' implies Low/High.
-        # Assuming 'prices' is 'close', we check if Close comes near EMA13.
-        # BETTER: Ideally we need High/Low for retest. For now using Close near EMA13.
-        for i in range(cross_up_idx, lookback):
-            if abs(p_recent[i] - e13_recent[i]) / p_recent[i] < 0.005: # 0.5% margin for retest
-                res['long_setup'] = True
+        # Search for previous pivot
+        for k in range(range_lower, range_upper + 1):
+            prev_idx = pivot_idx - k
+            if prev_idx < lookback_left:
                 break
                 
-    # Short Logic
-    if cross_down_idx != -1:
-        for i in range(cross_down_idx, lookback):
-            if abs(p_recent[i] - e13_recent[i]) / p_recent[i] < 0.005:
-                res['short_setup'] = True
+            if is_pivot_low(rsi, prev_idx, lookback_left, lookback_right):
+                prev_pivot_rsi = rsi[prev_idx]
+                prev_pivot_low_price = low[prev_idx]
+                
+                # Regular Bullish: Price Lower Low, RSI Higher Low
+                if current_pivot_low_price < prev_pivot_low_price and current_pivot_rsi > prev_pivot_rsi:
+                    return 'bullish_regular'
+                break
+
+    # --- CHECK BEARISH DIVERGENCE (Pivot High) ---
+    if is_pivot_high(rsi, pivot_idx, lookback_left, lookback_right):
+        current_pivot_rsi = rsi[pivot_idx]
+        current_pivot_high_price = high[pivot_idx]
+        
+        for k in range(range_lower, range_upper + 1):
+            prev_idx = pivot_idx - k
+            if prev_idx < lookback_left:
+                break
+            
+            if is_pivot_high(rsi, prev_idx, lookback_left, lookback_right):
+                prev_pivot_rsi = rsi[prev_idx]
+                prev_pivot_high_price = high[prev_idx]
+                
+                # Regular Bearish: Price Higher High, RSI Lower High
+                if current_pivot_high_price > prev_pivot_high_price and current_pivot_rsi < prev_pivot_rsi:
+                    return 'bearish_regular'
                 break
                 
-    return res
+    return None
 
 def detect_signal_layer(
-    prices: List[float],
+    high: List[float],
+    low: List[float],
+    close: List[float],
     ema_13: List[float],
     ema_21: List[float],
     rsi_14: List[float],
-    smoothed_rsi: List[float]
+    smoothed_rsi: List[float],
+    atr: List[float]
 ) -> Dict:
     """
-    Detect signal layer based on 5 user-defined rules
-    Requires full data series lists
+    Detect signal layer based on 5 user-defined rules from newCompro.
+    Evaluates on Confirmed Closed Candle (Index -2).
     """
     result = {
         'long_layer': 0,
@@ -273,110 +184,117 @@ def detect_signal_layer(
         'short_signal': None
     }
     
-    if len(prices) < 30:
+    if len(close) < 50:
         return result
         
-    # Current Values
-    curr_price = prices[-1]
-    curr_rsi = rsi_14[-1]
-    curr_srsi = smoothed_rsi[-1]
-    curr_ema13 = ema_13[-1]
-    curr_ema21 = ema_21[-1]
+    # Index -2 (Confirmed Closed Candle)
+    idx = -2
     
-    prev_rsi = rsi_14[-2]
-    prev_srsi = smoothed_rsi[-2]
+    # --- Data at Closed Candle ---
+    c_price = close[idx]
+    c_ema13 = ema_13[idx]
+    c_ema21 = ema_21[idx]
+    c_atr = atr[idx]
+    c_rsi = rsi_14[idx]
+    c_srsi = smoothed_rsi[idx]
     
-    # 1. EMA Analysis
-    ema_conditions = check_ema_cross_retest(prices, ema_13, ema_21)
-    ema_bullish_cross_retest = ema_conditions['long_setup']
-    ema_bearish_cross_retest = ema_conditions['short_setup']
+    # --- Rule 1: EMA Pullback / Touch ---
+    # Tolerance: ATR * 0.3
+    offset = c_atr * 0.3
     
-    # 2. Divergence Analysis
-    divs = detect_divergence(prices, rsi_14)
-    has_bullish_div = divs['bullish_regular'] or divs['bullish_hidden']
-    has_bearish_div = divs['bearish_regular'] or divs['bearish_hidden']
+    is_touch_13 = abs(c_price - c_ema13) <= offset
+    is_touch_21 = abs(c_price - c_ema21) <= offset
+    is_pullback = is_touch_13 and is_touch_21
     
-    # 3. Cross Logic
-    # RSI vs Smoothed RSI
-    rsi_cross_up_srsi = prev_rsi < prev_srsi and curr_rsi > curr_srsi
-    rsi_cross_down_srsi = prev_rsi > prev_srsi and curr_rsi < curr_srsi
+    # Trend Check
+    long_trend = c_ema13 > c_ema21
+    short_trend = c_ema13 < c_ema21
     
-    # EMA Cross (Raw check for instant cross)
-    prev_ema13 = ema_13[-2]
-    prev_ema21 = ema_21[-2]
-    ema_cross_up = prev_ema13 < prev_ema21 and curr_ema13 > curr_ema21
-    ema_cross_down = prev_ema13 > prev_ema21 and curr_ema13 < curr_ema21
-
-    # --- RULES IMPLEMENTATION ---
+    # Spread Filter: |EMA13 - EMA21| >= 0.15 * ATR
+    ema_spread = abs(c_ema13 - c_ema21)
+    min_spread = 0.15 * c_atr
     
-    # LAYER 5: EMA + RSI Smoothed
-    # Long: EMA13 cross up EMA21 & RSI < 30 & Cross Smoothed RSI & Bullish Div
-    # (Note: "EMA13 cross up EMA21" usually implies recent cross, combined with current RSI conditions)
-    # We allow "Recent Cross" for EMA condition to be more practical than "Exact same candle"
-    l5_long = (ema_bullish_cross_retest or ema_cross_up) and curr_rsi < 30 and rsi_cross_up_srsi and has_bullish_div
-    l5_short = (ema_bearish_cross_retest or ema_cross_down) and curr_rsi > 70 and rsi_cross_down_srsi and has_bearish_div # User said RSI < 30 for short, assuming > 70
+    if ema_spread < min_spread:
+        long_trend = False
+        short_trend = False
+        
+    s1_long = long_trend and is_pullback
+    s1_short = short_trend and is_pullback
     
-    if l5_long:
+    # --- Divergence Check ---
+    # Check divergence on the closed series (excluding active candle at -1)
+    # We pass the lists sliced up to -1
+    div_status = check_divergence(
+        high[:-1], low[:-1], close[:-1], rsi_14[:-1]
+    )
+    
+    has_bullish_div = div_status == 'bullish_regular'
+    has_bearish_div = div_status == 'bearish_regular'
+    
+    # --- Cross Logic for RSI/Smoothed RSI ---
+    # Check cross at idx (Closed)
+    # prev is idx-1
+    prev_rsi = rsi_14[idx-1]
+    prev_srsi = smoothed_rsi[idx-1]
+    
+    rsi_cross_up = prev_rsi <= prev_srsi and c_rsi > c_srsi
+    rsi_cross_down = prev_rsi >= prev_srsi and c_rsi < c_srsi
+    
+    # --- Rule 2: RSI Standard ---
+    # RSI < 40 (Long) / > 60 (Short) AND Divergence
+    s2_long = (c_rsi < 40) and has_bullish_div
+    s2_short = (c_rsi > 60) and has_bearish_div
+    
+    # --- Rule 3: RSI Smoothed ---
+    # RSI Cross Smoothed RSI + Divergence
+    # Filter: Smoothed RSI < 40 (Long) / > 60 (Short)
+    s3_long = (c_srsi < 40) and rsi_cross_up and has_bullish_div
+    s3_short = (c_srsi > 60) and rsi_cross_down and has_bearish_div
+    
+    # --- Rule 4: EMA + RSI Conventional ---
+    # Rule 1 AND Rule 2
+    s4_long = s1_long and s2_long
+    s4_short = s1_short and s2_short
+    
+    # --- Rule 5: EMA + RSI Smoothed ---
+    # Rule 1 AND Rule 3
+    s5_long = s1_long and s3_long
+    s5_short = s1_short and s3_short
+    
+    # --- Map to Layers ---
+    # Layer 5: Rule 5 (Strongest)
+    if s5_long:
         result['long_layer'] = 5
         result['long_signal'] = 'STRONG_LONG (L5)'
-    if l5_short:
+    elif s4_long:
+        result['long_layer'] = 4
+        result['long_signal'] = 'LONG (L4)'
+    elif s3_long:
+        result['long_layer'] = 3
+        result['long_signal'] = 'WEAK_LONG (L3)'
+    elif s2_long:
+        result['long_layer'] = 2
+        result['long_signal'] = 'POTENTIAL_LONG (L2)'
+    elif s1_long:
+        result['long_layer'] = 1
+        result['long_signal'] = 'EMA_LONG (L1)'
+        
+    if s5_short:
         result['short_layer'] = 5
         result['short_signal'] = 'STRONG_SHORT (L5)'
+    elif s4_short:
+        result['short_layer'] = 4
+        result['short_signal'] = 'SHORT (L4)'
+    elif s3_short:
+        result['short_layer'] = 3
+        result['short_signal'] = 'WEAK_SHORT (L3)'
+    elif s2_short:
+        result['short_layer'] = 2
+        result['short_signal'] = 'POTENTIAL_SHORT (L2)'
+    elif s1_short:
+        result['short_layer'] = 1
+        result['short_signal'] = 'EMA_SHORT (L1)'
         
-    # LAYER 4: EMA + RSI Conventional
-    # Long: EMA Cross Up & RSI < 30 & Bullish Div
-    if result['long_layer'] == 0:
-        l4_long = (ema_bullish_cross_retest or ema_cross_up) and curr_rsi < 30 and has_bullish_div
-        if l4_long:
-            result['long_layer'] = 4
-            result['long_signal'] = 'LONG (L4)'
-            
-    if result['short_layer'] == 0:
-        l4_short = (ema_bearish_cross_retest or ema_cross_down) and curr_rsi > 70 and has_bearish_div
-        if l4_short:
-            result['short_layer'] = 4
-            result['short_signal'] = 'SHORT (L4)'
-
-    # LAYER 3: Only RSI Smoothed
-    # Long: RSI < 30 + Cross Smoothed RSI
-    if result['long_layer'] == 0:
-        l3_long = curr_rsi < 30 and rsi_cross_up_srsi
-        if l3_long:
-            result['long_layer'] = 3
-            result['long_signal'] = 'WEAK_LONG (L3)'
-            
-    if result['short_layer'] == 0:
-        l3_short = curr_rsi > 70 and rsi_cross_down_srsi
-        if l3_short:
-            result['short_layer'] = 3
-            result['short_signal'] = 'WEAK_SHORT (L3)'
-
-    # LAYER 2: Only RSI Standard
-    # Long: RSI < 30 + Bullish Div
-    if result['long_layer'] == 0:
-        l2_long = curr_rsi < 30 and has_bullish_div
-        if l2_long:
-            result['long_layer'] = 2
-            result['long_signal'] = 'POTENTIAL_LONG (L2)'
-            
-    if result['short_layer'] == 0:
-        l2_short = curr_rsi > 70 and has_bearish_div
-        if l2_short:
-            result['short_layer'] = 2
-            result['short_signal'] = 'POTENTIAL_SHORT (L2)'
-
-    # LAYER 1: Only EMA
-    # Long: Cross Up + Retest
-    if result['long_layer'] == 0:
-        if ema_bullish_cross_retest:
-            result['long_layer'] = 1
-            result['long_signal'] = 'EMA_LONG (L1)'
-            
-    if result['short_layer'] == 0:
-        if ema_bearish_cross_retest:
-            result['short_layer'] = 1
-            result['short_signal'] = 'EMA_SHORT (L1)'
-            
     return result
 
 def get_rsi_category(rsi: float) -> str:

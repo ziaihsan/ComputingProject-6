@@ -277,11 +277,11 @@ TOP SHORT SIGNALS (Sell):
 {top_short_str}
 
 SIGNAL LAYER EXPLANATION:
-- Layer 5: EMA cross + RSI extreme + Smoothed RSI cross + Divergence (STRONGEST)
-- Layer 4: EMA cross + RSI extreme + Divergence
-- Layer 3: RSI extreme + Smoothed RSI cross
-- Layer 2: RSI extreme + Divergence
-- Layer 1: EMA cross + retest only
+- Layer 5: EMA Pullback + RSI Smoothed Cross + Divergence (STRONGEST)
+- Layer 4: EMA Pullback + RSI Standard + Divergence
+- Layer 3: RSI Smoothed Cross + Divergence
+- Layer 2: RSI Standard + Divergence
+- Layer 1: EMA Pullback / Touch only (Trend Confirmation)
 
 RESPONSE GUIDELINES:
 1. IMPORTANT: Detect the language of the user's question and respond in the SAME language

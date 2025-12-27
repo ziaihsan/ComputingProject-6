@@ -607,7 +607,7 @@ export function Heatmap() {
                           </div>
                           <div className="text-center">
                             <p className="font-semibold text-white">Loading market data</p>
-                            <p className="text-sm text-slate-400">Fetching from CoinGecko...</p>
+                            <p className="text-sm text-slate-400">Fetching from Binance...</p>
                           </div>
                         </motion.div>
                       </motion.div>
